@@ -28,12 +28,18 @@ export async function extractTextFromPdf(file: File): Promise<string> {
     
     let lastY = -1;
     let text = '';
-    for (const item of textContent.items as any[]) {
-      if (lastY !== item.transform[5] && lastY !== -1) {
-        text += '\n';
+    const items = textContent.items || [];
+    for (let j = 0; j < items.length; j++) {
+      const item = items[j] as any;
+      if (item.transform && Array.isArray(item.transform)) {
+        if (lastY !== item.transform[5] && lastY !== -1) {
+          text += '\n';
+        }
+        lastY = item.transform[5];
       }
-      text += item.str;
-      lastY = item.transform[5];
+      if (typeof item.str === 'string') {
+        text += item.str;
+      }
     }
     fullText += text + '\n';
   }

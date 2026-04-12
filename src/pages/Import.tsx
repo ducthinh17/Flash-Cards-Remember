@@ -67,7 +67,8 @@ export default function Import() {
     let skipped = 0;
     const lessonsSet = new Set<string>();
 
-    for (let rawLine of lines) {
+    for (let i = 0; i < lines.length; i++) {
+      const rawLine = lines[i];
       const line = normalizeLine(rawLine);
       if (!line) continue;
 
