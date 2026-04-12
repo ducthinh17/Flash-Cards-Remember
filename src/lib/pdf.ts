@@ -1,6 +1,6 @@
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.mjs';
+import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf.js';
 // @ts-ignore
-import workerSrc from 'pdfjs-dist/legacy/build/pdf.worker.min.mjs?url';
+import workerSrc from 'pdfjs-dist/legacy/build/pdf.worker.min.js?url';
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
 
