@@ -1,13 +1,31 @@
-import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useStore } from "../store/useStore";
-import { Gamepad2, Zap, LayoutGrid } from "lucide-react";
+import { Gamepad2, Zap, LayoutGrid, Link as LinkIcon, Settings2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { cn } from "../lib/utils";
+
+// ── Options ───────────────────────────────────────────────────────────────────
+const SPEED_COUNTS  = [5, 10,15,20,25,30,35,40,45,50] as const;
+const MATCH_PAIRS   = [8, 12, 16, 20,30,40,50,60,70,80,100]   as const;
 
 export default function Games() {
   const { collections, vocabItems } = useStore();
-  const [selectedCollection, setSelectedCollection] = useState<string>("");
+  const navigate = useNavigate();
+
+  const [selectedCollection, setSelectedCollection] = useState("");
+  const [speedCount,  setSpeedCount]  = useState<number>(20);
+  const [matchPairs,  setMatchPairs]  = useState<number>(6);
 
   const hasVocab = vocabItems.length > 0;
+
+  // Available vocab in selected collection
+  const availableCount = selectedCollection
+    ? vocabItems.filter(v => v.collectionId === selectedCollection).length
+    : vocabItems.length;
+
+  const speedUrl = `/games/speed${selectedCollection ? `/${selectedCollection}` : ""}?count=${speedCount}`;
+  const matchUrl = `/games/matching${selectedCollection ? `/${selectedCollection}` : ""}?count=${matchPairs}`;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -27,8 +45,8 @@ export default function Games() {
             <Gamepad2 className="w-8 h-8" />
           </div>
           <h2 className="text-lg font-medium text-gray-900 mb-2">No vocabulary found</h2>
-          <p className="text-gray-500 mb-6">You need to import some vocabulary before you can play games.</p>
-          <Link 
+          <p className="text-gray-500 mb-6">Import some vocabulary before playing games.</p>
+          <Link
             to="/import"
             className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors"
           >
@@ -37,58 +55,135 @@ export default function Games() {
         </div>
       ) : (
         <div className="space-y-8">
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 max-w-md">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Select Collection to Play</label>
-            <select 
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
-              value={selectedCollection}
-              onChange={(e) => setSelectedCollection(e.target.value)}
-            >
-              <option value="">All Collections</option>
-              {collections.map(c => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+          {/* ── Settings panel ─────────────────────────────────────────────── */}
+          <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2 mb-4">
+              <Settings2 className="w-4 h-4 text-gray-500" />
+              <span className="text-sm font-semibold text-gray-700">Game Settings</span>
+              <span className="ml-auto text-xs text-gray-400">
+                {availableCount} words available
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* Collection */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">Collection</label>
+                <select
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none bg-gray-50"
+                  value={selectedCollection}
+                  onChange={e => setSelectedCollection(e.target.value)}
+                >
+                  <option value="">All Collections</option>
+                  {collections.map(c => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Speed Quiz count */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                  Speed Quiz — Questions
+                </label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {SPEED_COUNTS.map(n => (
+                    <button
+                      key={n}
+                      onClick={() => setSpeedCount(n)}
+                      disabled={n > availableCount}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
+                        speedCount === n
+                          ? "bg-amber-500 text-white border-amber-500"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-amber-300 hover:bg-amber-50",
+                        n > availableCount && "opacity-40 cursor-not-allowed"
+                      )}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Matching pairs count */}
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1.5">
+                  Matching — Pairs
+                </label>
+                <div className="flex gap-1.5 flex-wrap">
+                  {MATCH_PAIRS.map(n => (
+                    <button
+                      key={n}
+                      onClick={() => setMatchPairs(n)}
+                      disabled={n > availableCount}
+                      className={cn(
+                        "px-3 py-1.5 rounded-lg text-sm font-medium border transition-colors",
+                        matchPairs === n
+                          ? "bg-blue-600 text-white border-blue-600"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-blue-300 hover:bg-blue-50",
+                        n > availableCount && "opacity-40 cursor-not-allowed"
+                      )}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
 
+          {/* ── Game cards ─────────────────────────────────────────────────── */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Matching Game Card */}
+            {/* Matching Game */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:shadow-md transition-shadow">
               <div className="p-8 flex-1 flex flex-col items-center text-center">
                 <div className="w-20 h-20 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 transform -rotate-6">
                   <LayoutGrid className="w-10 h-10" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Matching</h2>
-                <p className="text-gray-500 mb-6">Match English words with their Vietnamese meanings to clear the board.</p>
+                <p className="text-gray-500 mb-3">
+                  Match English words with their meanings to clear the board.
+                </p>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium">
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  {matchPairs} pairs · {matchPairs * 2} cards
+                </div>
               </div>
               <div className="p-4 bg-gray-50 border-t border-gray-100">
-                <Link 
-                  to={`/games/matching${selectedCollection ? `/${selectedCollection}` : ''}`}
+                <button
+                  onClick={() => navigate(matchUrl)}
                   className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
                 >
                   <Gamepad2 className="w-5 h-5" />
                   Play Matching
-                </Link>
+                </button>
               </div>
             </div>
 
-            {/* Speed Quiz Card */}
+            {/* Speed Quiz */}
             <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden flex flex-col hover:shadow-md transition-shadow">
               <div className="p-8 flex-1 flex flex-col items-center text-center">
                 <div className="w-20 h-20 bg-amber-50 text-amber-600 rounded-2xl flex items-center justify-center mb-6 transform rotate-6">
                   <Zap className="w-10 h-10" />
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Speed Quiz</h2>
-                <p className="text-gray-500 mb-6">Race against the clock! You have 5 seconds per question.</p>
+                <p className="text-gray-500 mb-3">
+                  Race against the clock! You have 5 seconds per question.
+                </p>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-50 text-amber-700 rounded-full text-sm font-medium">
+                  <Zap className="w-3.5 h-3.5" />
+                  {speedCount} questions · 5s each
+                </div>
               </div>
               <div className="p-4 bg-gray-50 border-t border-gray-100">
-                <Link 
-                  to={`/games/speed${selectedCollection ? `/${selectedCollection}` : ''}`}
+                <button
+                  onClick={() => navigate(speedUrl)}
                   className="w-full flex items-center justify-center gap-2 bg-amber-500 text-white py-3 rounded-xl font-semibold hover:bg-amber-600 transition-colors"
                 >
                   <Zap className="w-5 h-5" />
                   Play Speed Quiz
-                </Link>
+                </button>
               </div>
             </div>
           </div>

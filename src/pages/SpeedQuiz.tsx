@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "../store/useStore";
 import { ArrowLeft, Zap } from "lucide-react";
 import { VocabItem } from "../types";
@@ -10,7 +10,9 @@ const TIME_LIMIT = 5; // seconds per question
 export default function SpeedQuiz() {
   const { collectionId } = useParams<{ collectionId?: string }>();
   const navigate = useNavigate();
-  const { vocabItems } = useStore();
+  const [searchParams] = useSearchParams();
+  const { vocabItems, updateVocabProgress, recordStudySession } = useStore();
+  const questionCount = Math.max(5, parseInt(searchParams.get("count") ?? "20", 10));
 
   const [items, setItems] = useState<VocabItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -33,7 +35,7 @@ export default function SpeedQuiz() {
       
     if (pool.length === 0) return;
 
-    const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, 20); // Max 20 questions
+    const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, questionCount);
     setItems(shuffled);
     setCurrentIndex(0);
     setScore(0);
@@ -64,10 +66,13 @@ export default function SpeedQuiz() {
   };
 
   const handleTimeOut = () => {
+    // Timed out = wrong answer — update SRS
+    updateVocabProgress(items[currentIndex].id, false);
     setSelectedAnswer("TIMEOUT");
     setTimeout(() => {
       if (currentIndex + 1 >= items.length) {
         setIsGameOver(true);
+        recordStudySession();
       } else {
         setCurrentIndex(prev => prev + 1);
       }
@@ -90,17 +95,17 @@ export default function SpeedQuiz() {
   const handleAnswer = (answer: string) => {
     if (selectedAnswer) return;
     clearInterval(timerRef.current);
-    
+
     setSelectedAnswer(answer);
     const isCorrect = answer === items[currentIndex].meaning;
-    
-    if (isCorrect) {
-      setScore(s => s + 1);
-    }
+
+    if (isCorrect) setScore(s => s + 1);
+    updateVocabProgress(items[currentIndex].id, isCorrect);
 
     setTimeout(() => {
       if (currentIndex + 1 >= items.length) {
         setIsGameOver(true);
+        recordStudySession();
       } else {
         setCurrentIndex(prev => prev + 1);
       }

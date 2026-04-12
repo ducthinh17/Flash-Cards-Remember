@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "../store/useStore";
 import { ArrowLeft, CheckCircle } from "lucide-react";
 import { cn } from "../lib/utils";
+import { speakTerm } from "../lib/speech";
 
 type Card = {
   id: string;
@@ -16,11 +17,14 @@ type Card = {
 export default function MatchingGame() {
   const { collectionId } = useParams<{ collectionId?: string }>();
   const navigate = useNavigate();
-  const { vocabItems } = useStore();
+  const [searchParams] = useSearchParams();
+  const { vocabItems, updateVocabProgress, recordStudySession } = useStore();
+  const pairCount = Math.max(4, parseInt(searchParams.get("count") ?? "6", 10));
 
   const [cards, setCards] = useState<Card[]>([]);
   const [selectedCards, setSelectedCards] = useState<Card[]>([]);
   const [isWon, setIsWon] = useState(false);
+  const [mistakes, setMistakes] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
   const [timeElapsed, setTimeElapsed] = useState(0);
 
@@ -45,8 +49,8 @@ export default function MatchingGame() {
       
     if (pool.length === 0) return;
 
-    // Pick 6 random pairs
-    const selectedItems = [...pool].sort(() => Math.random() - 0.5).slice(0, 6);
+    // Pick N random pairs
+    const selectedItems = [...pool].sort(() => Math.random() - 0.5).slice(0, pairCount);
     
     const newCards: Card[] = [];
     selectedItems.forEach(item => {
@@ -71,6 +75,7 @@ export default function MatchingGame() {
     setCards(newCards.sort(() => Math.random() - 0.5));
     setSelectedCards([]);
     setIsWon(false);
+    setMistakes(0);
     setStartTime(Date.now());
     setTimeElapsed(0);
   };
@@ -85,19 +90,24 @@ export default function MatchingGame() {
 
     if (newSelected.length === 2) {
       const [first, second] = newSelected;
-      
+
       if (first.matchId === second.matchId && first.type !== second.type) {
-        // Match!
+        // Correct match — update SRS progress and speak the term
+        updateVocabProgress(first.matchId, true);
+        const matched = vocabItems.find(v => v.id === first.matchId);
+        if (matched) speakTerm(matched.term);
+
         setTimeout(() => {
-          setCards(prev => prev.map(c => 
+          setCards(prev => prev.map(c =>
             c.matchId === first.matchId ? { ...c, isMatched: true, isSelected: false } : c
           ));
           setSelectedCards([]);
         }, 500);
       } else {
-        // No match
+        // Wrong match
+        setMistakes(m => m + 1);
         setTimeout(() => {
-          setCards(prev => prev.map(c => 
+          setCards(prev => prev.map(c =>
             c.id === first.id || c.id === second.id ? { ...c, isSelected: false } : c
           ));
           setSelectedCards([]);
@@ -109,6 +119,7 @@ export default function MatchingGame() {
   useEffect(() => {
     if (cards.length > 0 && cards.every(c => c.isMatched)) {
       setIsWon(true);
+      recordStudySession();
     }
   }, [cards]);
 
@@ -129,8 +140,17 @@ export default function MatchingGame() {
         <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
           <CheckCircle className="w-12 h-12" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">You Won!</h2>
-        <p className="text-gray-500 mb-8">Time: {timeElapsed} seconds</p>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">You Won! 🎉</h2>
+        <div className="flex gap-4 justify-center mb-6">
+          <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-5 py-3">
+            <p className="text-2xl font-bold text-emerald-700">{timeElapsed}s</p>
+            <p className="text-xs text-emerald-600 mt-0.5">Time</p>
+          </div>
+          <div className="bg-red-50 border border-red-100 rounded-xl px-5 py-3">
+            <p className="text-2xl font-bold text-red-700">{mistakes}</p>
+            <p className="text-xs text-red-600 mt-0.5">Mistakes</p>
+          </div>
+        </div>
         <div className="flex flex-col gap-3">
           <button 
             onClick={initGame}

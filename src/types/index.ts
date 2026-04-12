@@ -10,6 +10,7 @@ export type VocabItem = {
   term: string;
   type: string;
   meaning: string;
+  example?: string;        // Optional example sentence
   lessonTitle: string;
   collectionId: string;
   createdAt: string;
@@ -21,6 +22,7 @@ export type VocabItem = {
   interval: number;
   isHard?: boolean;
 };
+
 
 export type LessonGroup = {
   title: string;

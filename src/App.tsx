@@ -16,6 +16,7 @@ import ActiveRecall from "./pages/ActiveRecall";
 import Games from "./pages/Games";
 import MatchingGame from "./pages/MatchingGame";
 import SpeedQuiz from "./pages/SpeedQuiz";
+import Stats from "./pages/Stats";
 
 export default function App() {
   return (
@@ -33,6 +34,7 @@ export default function App() {
           <Route path="games" element={<Games />} />
           <Route path="games/matching/:collectionId?" element={<MatchingGame />} />
           <Route path="games/speed/:collectionId?" element={<SpeedQuiz />} />
+          <Route path="stats" element={<Stats />} />
         </Route>
       </Routes>
     </BrowserRouter>
