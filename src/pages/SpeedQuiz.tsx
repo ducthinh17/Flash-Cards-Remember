@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "../store/useStore";
 import { ArrowLeft, Zap } from "lucide-react";
@@ -7,6 +7,42 @@ import { cn } from "../lib/utils";
 
 const TIME_LIMIT = 5; // seconds per question
 
+/**
+ * Fisher–Yates shuffle — returns a new array.
+ * More uniform than sort(() => Math.random() - 0.5).
+ */
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+/**
+ * Build the 4 answer options (1 correct + 3 wrong) for a given question.
+ * Deduplicates meanings and ensures the correct answer is always present.
+ */
+function buildOptions(current: VocabItem, allItems: VocabItem[]): string[] {
+  const correctMeaning = current.meaning;
+
+  // Collect unique wrong meanings
+  const uniqueWrong = new Set<string>();
+  const pool = shuffle(allItems);
+  for (const item of pool) {
+    if (item.meaning !== correctMeaning) {
+      uniqueWrong.add(item.meaning);
+    }
+    if (uniqueWrong.size >= 3) break;
+  }
+
+  const options = [...uniqueWrong].slice(0, 3);
+  options.push(correctMeaning);
+
+  return shuffle(options);
+}
+
 export default function SpeedQuiz() {
   const { collectionId } = useParams<{ collectionId?: string }>();
   const navigate = useNavigate();
@@ -14,108 +50,125 @@ export default function SpeedQuiz() {
   const { vocabItems, updateVocabProgress, recordStudySession } = useStore();
   const questionCount = Math.max(5, parseInt(searchParams.get("count") ?? "20", 10));
 
+  // ---------- game-level state ----------
   const [items, setItems] = useState<VocabItem[]>([]);
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [options, setOptions] = useState<string[]>([]);
   const [score, setScore] = useState(0);
-  const [timeLeft, setTimeLeft] = useState(TIME_LIMIT);
   const [isGameOver, setIsGameOver] = useState(false);
+
+  // ---------- per-question state ----------
+  const [options, setOptions] = useState<string[]>([]);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
+  const [timeLeft, setTimeLeft] = useState(TIME_LIMIT);
 
-  const timerRef = useRef<any>(null);
+  // ---------- refs ----------
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const answeredRef = useRef(false); // guards against timer + click race
+  const vocabSnapshotRef = useRef<VocabItem[]>([]); // frozen pool for option generation
 
-  useEffect(() => {
-    initGame();
-  }, [collectionId, vocabItems]);
-
-  const initGame = () => {
-    let pool = collectionId 
-      ? vocabItems.filter(v => v.collectionId === collectionId)
+  // ========== INIT GAME ==========
+  // Only runs on mount and when collectionId changes (NOT on every vocabItems change).
+  const initGame = useCallback(() => {
+    const pool = collectionId
+      ? vocabItems.filter((v) => v.collectionId === collectionId)
       : vocabItems;
-      
+
     if (pool.length === 0) return;
 
-    const shuffled = [...pool].sort(() => Math.random() - 0.5).slice(0, questionCount);
+    // Snapshot vocabulary once for the entire game session
+    vocabSnapshotRef.current = [...pool];
+
+    const shuffled = shuffle(pool).slice(0, questionCount);
     setItems(shuffled);
     setCurrentIndex(0);
     setScore(0);
     setIsGameOver(false);
     setSelectedAnswer(null);
-  };
+    answeredRef.current = false;
+  }, [collectionId, questionCount]); // intentionally exclude vocabItems
 
+  // Run initGame only on mount / collectionId change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { initGame(); }, [collectionId]);
+
+  // ========== SET UP EACH QUESTION ==========
   useEffect(() => {
-    if (items.length > 0 && currentIndex < items.length && !isGameOver) {
-      generateOptions();
-      setTimeLeft(TIME_LIMIT);
-      startTimer();
-    }
-  }, [currentIndex, items, isGameOver]);
+    if (items.length === 0 || currentIndex >= items.length || isGameOver) return;
 
-  const startTimer = () => {
-    clearInterval(timerRef.current);
+    const currentItem = items[currentIndex];
+    const newOptions = buildOptions(currentItem, vocabSnapshotRef.current);
+
+    setOptions(newOptions);
+    setSelectedAnswer(null);
+    answeredRef.current = false;
+    setTimeLeft(TIME_LIMIT);
+
+    // Start countdown
+    clearInterval(timerRef.current!);
     timerRef.current = setInterval(() => {
-      setTimeLeft(prev => {
+      setTimeLeft((prev) => {
         if (prev <= 1) {
-          clearInterval(timerRef.current);
-          handleTimeOut();
+          clearInterval(timerRef.current!);
+          // use timeout to avoid setState-in-setState
+          setTimeout(() => handleTimeOut(), 0);
           return 0;
         }
         return prev - 1;
       });
     }, 1000);
-  };
 
-  const handleTimeOut = () => {
-    // Timed out = wrong answer — update SRS
-    updateVocabProgress(items[currentIndex].id, false);
-    setSelectedAnswer("TIMEOUT");
-    setTimeout(() => {
-      if (currentIndex + 1 >= items.length) {
-        setIsGameOver(true);
-        recordStudySession();
-      } else {
-        setCurrentIndex(prev => prev + 1);
-      }
-    }, 1000);
-  };
+    return () => clearInterval(timerRef.current!);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentIndex, items.length, isGameOver]);
 
-  const generateOptions = () => {
+  // ========== ADVANCE TO NEXT QUESTION ==========
+  const advanceQuestion = useCallback(() => {
+    if (currentIndex + 1 >= items.length) {
+      setIsGameOver(true);
+      recordStudySession();
+    } else {
+      setCurrentIndex((prev) => prev + 1);
+    }
+  }, [currentIndex, items.length, recordStudySession]);
+
+  // ========== HANDLE TIMEOUT ==========
+  const handleTimeOut = useCallback(() => {
+    if (answeredRef.current) return; // already answered
+    answeredRef.current = true;
+
     const currentItem = items[currentIndex];
-    const allMeanings = vocabItems.map(v => v.meaning);
-    const wrongOptions = allMeanings
-      .filter(m => m !== currentItem.meaning)
-      .sort(() => Math.random() - 0.5)
-      .slice(0, 3);
-    
-    const newOptions = [...wrongOptions, currentItem.meaning].sort(() => Math.random() - 0.5);
-    setOptions(newOptions);
-    setSelectedAnswer(null);
-  };
+    if (currentItem) {
+      updateVocabProgress(currentItem.id, false);
+    }
+    setSelectedAnswer("TIMEOUT");
 
-  const handleAnswer = (answer: string) => {
-    if (selectedAnswer) return;
-    clearInterval(timerRef.current);
+    setTimeout(advanceQuestion, 1000);
+  }, [currentIndex, items, updateVocabProgress, advanceQuestion]);
 
-    setSelectedAnswer(answer);
-    const isCorrect = answer === items[currentIndex].meaning;
+  // ========== HANDLE USER CLICK ==========
+  const handleAnswer = useCallback(
+    (answer: string) => {
+      if (answeredRef.current) return; // prevent double-tap / timer race
+      answeredRef.current = true;
+      clearInterval(timerRef.current!);
 
-    if (isCorrect) setScore(s => s + 1);
-    updateVocabProgress(items[currentIndex].id, isCorrect);
+      setSelectedAnswer(answer);
+      const isCorrect = answer === items[currentIndex].meaning;
 
-    setTimeout(() => {
-      if (currentIndex + 1 >= items.length) {
-        setIsGameOver(true);
-        recordStudySession();
-      } else {
-        setCurrentIndex(prev => prev + 1);
-      }
-    }, 1000);
-  };
+      if (isCorrect) setScore((s) => s + 1);
+      updateVocabProgress(items[currentIndex].id, isCorrect);
 
+      setTimeout(advanceQuestion, 1000);
+    },
+    [currentIndex, items, updateVocabProgress, advanceQuestion]
+  );
+
+  // ========== CLEANUP ON UNMOUNT ==========
   useEffect(() => {
-    return () => clearInterval(timerRef.current);
+    return () => clearInterval(timerRef.current!);
   }, []);
 
+  // ========== RENDERS ==========
   if (items.length === 0) {
     return (
       <div className="text-center py-20">
@@ -134,16 +187,18 @@ export default function SpeedQuiz() {
           <Zap className="w-12 h-12" />
         </div>
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Game Over!</h2>
-        <p className="text-gray-500 mb-8">You scored {score} out of {items.length}.</p>
+        <p className="text-gray-500 mb-8">
+          You scored {score} out of {items.length}.
+        </p>
         <div className="flex flex-col gap-3">
-          <button 
+          <button
             onClick={initGame}
             className="w-full py-3 bg-amber-500 text-white rounded-xl font-medium hover:bg-amber-600 transition-colors"
           >
             Play Again
           </button>
-          <button 
-            onClick={() => navigate('/games')}
+          <button
+            onClick={() => navigate("/games")}
             className="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
           >
             Back to Games
@@ -158,8 +213,8 @@ export default function SpeedQuiz() {
   return (
     <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in duration-300">
       <header className="flex items-center justify-between">
-        <button 
-          onClick={() => navigate('/games')}
+        <button
+          onClick={() => navigate("/games")}
           className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
@@ -169,14 +224,12 @@ export default function SpeedQuiz() {
           <div className="text-sm font-medium text-gray-500">
             {currentIndex + 1} / {items.length}
           </div>
-          <div className="text-lg font-bold text-amber-600 w-8 text-center">
-            {timeLeft}s
-          </div>
+          <div className="text-lg font-bold text-amber-600 w-8 text-center">{timeLeft}s</div>
         </div>
       </header>
 
       <div className="w-full bg-gray-200 rounded-full h-2">
-        <div 
+        <div
           className={cn(
             "h-2 rounded-full transition-all duration-1000 linear",
             timeLeft > 2 ? "bg-amber-500" : "bg-red-500"
@@ -190,12 +243,13 @@ export default function SpeedQuiz() {
       </div>
 
       <div className="grid grid-cols-1 gap-3">
-        {options.map((option, idx) => {
+        {options.map((option) => {
           const isSelected = selectedAnswer === option;
           const isActuallyCorrect = option === currentItem.meaning;
-          
-          let btnClass = "bg-white border-gray-200 text-gray-700 hover:border-amber-300 hover:bg-amber-50";
-          
+
+          let btnClass =
+            "bg-white border-gray-200 text-gray-700 hover:border-amber-300 hover:bg-amber-50";
+
           if (selectedAnswer) {
             if (isActuallyCorrect) {
               btnClass = "bg-emerald-50 border-emerald-500 text-emerald-700";
@@ -208,7 +262,7 @@ export default function SpeedQuiz() {
 
           return (
             <button
-              key={idx}
+              key={`${currentIndex}-${option}`}
               onClick={() => handleAnswer(option)}
               disabled={!!selectedAnswer}
               className={cn(

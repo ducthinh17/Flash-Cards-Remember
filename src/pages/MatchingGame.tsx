@@ -1,9 +1,10 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "../store/useStore";
 import { ArrowLeft, CheckCircle } from "lucide-react";
 import { cn } from "../lib/utils";
 import { speakTerm } from "../lib/speech";
+import { VocabItem } from "../types";
 
 type Card = {
   id: string;
@@ -13,6 +14,16 @@ type Card = {
   isMatched: boolean;
   isSelected: boolean;
 };
+
+// Fisher-Yates shuffle
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 export default function MatchingGame() {
   const { collectionId } = useParams<{ collectionId?: string }>();
@@ -28,29 +39,15 @@ export default function MatchingGame() {
   const [startTime, setStartTime] = useState<number | null>(null);
   const [timeElapsed, setTimeElapsed] = useState(0);
 
-  useEffect(() => {
-    initGame();
-  }, [collectionId, vocabItems]);
-
-  useEffect(() => {
-    let interval: any;
-    if (startTime && !isWon) {
-      interval = setInterval(() => {
-        setTimeElapsed(Math.floor((Date.now() - startTime) / 1000));
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [startTime, isWon]);
-
-  const initGame = () => {
-    let pool = collectionId 
+  const initGame = useCallback(() => {
+    const pool = collectionId 
       ? vocabItems.filter(v => v.collectionId === collectionId)
       : vocabItems;
       
     if (pool.length === 0) return;
 
     // Pick N random pairs
-    const selectedItems = [...pool].sort(() => Math.random() - 0.5).slice(0, pairCount);
+    const selectedItems = shuffle(pool).slice(0, pairCount);
     
     const newCards: Card[] = [];
     selectedItems.forEach(item => {
@@ -72,27 +69,42 @@ export default function MatchingGame() {
       });
     });
 
-    setCards(newCards.sort(() => Math.random() - 0.5));
+    setCards(shuffle(newCards));
     setSelectedCards([]);
     setIsWon(false);
     setMistakes(0);
     setStartTime(Date.now());
     setTimeElapsed(0);
-  };
+  }, [collectionId, pairCount]); // Exclude vocabItems to prevent reset
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    initGame();
+  }, [collectionId]);
+
+  useEffect(() => {
+    let interval: ReturnType<typeof setInterval>;
+    if (startTime && !isWon) {
+      interval = setInterval(() => {
+        setTimeElapsed(Math.floor((Date.now() - startTime) / 1000));
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [startTime, isWon]);
 
   const handleCardClick = (card: Card) => {
     if (card.isMatched || card.isSelected || selectedCards.length >= 2) return;
 
     const newSelected = [...selectedCards, card];
     
-    setCards(cards.map(c => c.id === card.id ? { ...c, isSelected: true } : c));
+    setCards(prevCards => prevCards.map(c => c.id === card.id ? { ...c, isSelected: true } : c));
     setSelectedCards(newSelected);
 
     if (newSelected.length === 2) {
       const [first, second] = newSelected;
 
       if (first.matchId === second.matchId && first.type !== second.type) {
-        // Correct match — update SRS progress and speak the term
+        // Correct match
         updateVocabProgress(first.matchId, true);
         const matched = vocabItems.find(v => v.id === first.matchId);
         if (matched) speakTerm(matched.term);
@@ -117,11 +129,11 @@ export default function MatchingGame() {
   };
 
   useEffect(() => {
-    if (cards.length > 0 && cards.every(c => c.isMatched)) {
+    if (cards.length > 0 && cards.every(c => c.isMatched) && !isWon) {
       setIsWon(true);
       recordStudySession();
     }
-  }, [cards]);
+  }, [cards, isWon, recordStudySession]);
 
   if (cards.length === 0) {
     return (

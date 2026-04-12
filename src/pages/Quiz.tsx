@@ -1,10 +1,39 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "../store/useStore";
 import { ArrowLeft, CheckCircle, XCircle, Volume2 } from "lucide-react";
 import { VocabItem } from "../types";
 import { cn } from "../lib/utils";
 import { speakTerm } from "../lib/speech";
+
+// Fisher-Yates shuffle
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function buildOptions(current: VocabItem, allItems: VocabItem[]): string[] {
+  const correctMeaning = current.meaning;
+
+  // Collect unique wrong meanings
+  const uniqueWrong = new Set<string>();
+  const pool = shuffle(allItems);
+  for (const item of pool) {
+    if (item.meaning !== correctMeaning) {
+      uniqueWrong.add(item.meaning);
+    }
+    if (uniqueWrong.size >= 3) break;
+  }
+
+  const options = [...uniqueWrong].slice(0, 3);
+  options.push(correctMeaning);
+
+  return shuffle(options);
+}
 
 export default function Quiz() {
   const { collectionId, lessonTitle } = useParams<{ collectionId: string; lessonTitle?: string }>();
@@ -21,22 +50,24 @@ export default function Quiz() {
   const [isCorrect,      setIsCorrect]      = useState<boolean | null>(null);
   const [score,          setScore]          = useState(0);
 
-  // ── Derived (computed BEFORE hooks — no hooks after early return!) ─────────
-  // We compute these here so the session effect below can reference them.
+  // ── Refs ───────────────────────────────────────────────────────────────────
+  const vocabSnapshotRef = useRef<VocabItem[]>([]);
+  const sessionRecorded = useRef(false);
+
+  // ── Derived ────────────────────────────────────────────────────────────────
   const isFinished = currentIndex > 0 && currentIndex >= items.length;
 
-  // ── Session recording — MUST be before any early return ───────────────────
-  const sessionRecorded = useRef(false);
+  // ── Session recording ───────────────────────────────────────────────────────
   useEffect(() => {
     if (isFinished && !sessionRecorded.current) {
       sessionRecorded.current = true;
       recordStudySession();
     }
-  }, [isFinished]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isFinished, recordStudySession]);
 
   // ── Load / filter items ───────────────────────────────────────────────────
-  useEffect(() => {
-    sessionRecorded.current = false; // reset for new session
+  const initGame = useCallback(() => {
+    sessionRecorded.current = false;
     let filtered: typeof vocabItems = [];
     if (collectionId === "review") {
       if (filterMode === "hard") {
@@ -64,25 +95,28 @@ export default function Quiz() {
           (!lessonTitle || v.lessonTitle === decodeURIComponent(lessonTitle))
       );
     }
-    setItems([...filtered].sort(() => Math.random() - 0.5));
+    
+    vocabSnapshotRef.current = [...vocabItems]; // Snapshot whole pool for generating options
+    
+    setItems(shuffle(filtered));
     setCurrentIndex(0);
     setScore(0);
-  }, [collectionId, lessonTitle, filterMode]); // eslint-disable-line react-hooks/exhaustive-deps
+    setSelectedAnswer(null);
+    setIsCorrect(null);
+  }, [collectionId, lessonTitle, filterMode]); // exclude vocabItems
 
-  // ── Generate answer options ───────────────────────────────────────────────
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { initGame(); }, [collectionId, lessonTitle, filterMode]);
+
+  // ── Setup Current Question ────────────────────────────────────────────────
   useEffect(() => {
     if (items.length > 0 && currentIndex < items.length) {
       const currentItem = items[currentIndex];
-      const allMeanings = Array.from(new Set(vocabItems.map(v => v.meaning)));
-      const wrong = allMeanings
-        .filter(m => m !== currentItem.meaning)
-        .sort(() => Math.random() - 0.5)
-        .slice(0, 3);
-      setOptions([...wrong, currentItem.meaning].sort(() => Math.random() - 0.5));
+      setOptions(buildOptions(currentItem, vocabSnapshotRef.current));
       setSelectedAnswer(null);
       setIsCorrect(null);
     }
-  }, [currentIndex, items]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentIndex, items]);
 
   // ── Loading / empty guard ─────────────────────────────────────────────────
   const collectionName =
@@ -91,7 +125,6 @@ export default function Quiz() {
       : collections.find(c => c.id === collectionId)?.name;
 
   if (items.length === 0) {
-    // Still loading or truly empty
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
         <p className="text-gray-500 text-lg">
@@ -121,12 +154,7 @@ export default function Quiz() {
         </p>
         <div className="flex flex-col gap-3">
           <button
-            onClick={() => {
-              sessionRecorded.current = false;
-              setCurrentIndex(0);
-              setScore(0);
-              setItems(prev => [...prev].sort(() => Math.random() - 0.5));
-            }}
+            onClick={initGame}
             className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
           >
             Try Again
@@ -170,7 +198,6 @@ export default function Quiz() {
         </div>
       </header>
 
-      {/* Progress bar */}
       <div className="w-full bg-gray-200 rounded-full h-1.5">
         <div
           className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
@@ -178,7 +205,6 @@ export default function Quiz() {
         />
       </div>
 
-      {/* Term card */}
       <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 text-center min-h-[200px] flex flex-col justify-center">
         <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium mb-4 mx-auto">
           {currentItem.type}
@@ -194,9 +220,8 @@ export default function Quiz() {
         </button>
       </div>
 
-      {/* Answer options */}
       <div className="grid grid-cols-1 gap-3">
-        {options.map((option, idx) => {
+        {options.map((option) => {
           const isSelected        = selectedAnswer === option;
           const isActuallyCorrect = option === currentItem.meaning;
           let btnClass = "bg-white border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50";
@@ -211,7 +236,7 @@ export default function Quiz() {
           }
           return (
             <button
-              key={idx}
+              key={`${currentIndex}-${option}`}
               onClick={() => handleAnswer(option)}
               disabled={!!selectedAnswer}
               className={cn(
@@ -227,7 +252,6 @@ export default function Quiz() {
         })}
       </div>
 
-      {/* Feedback banner */}
       {selectedAnswer && (
         <div
           className={cn(
@@ -237,10 +261,10 @@ export default function Quiz() {
         >
           <p className="text-lg font-bold">{isCorrect ? "Correct!" : "Incorrect"}</p>
           {!isCorrect && (
-            <p className="text-sm mt-1">
-              Correct answer:{" "}
-              <span className="font-bold underline">{currentItem.meaning}</span>
-            </p>
+           <p className="text-sm mt-1">
+             Correct answer:{" "}
+             <span className="font-bold underline">{currentItem.meaning}</span>
+           </p>
           )}
         </div>
       )}
