@@ -34,7 +34,8 @@ export function parseVocabLine(line: string): { term: string; type: string; mean
 export function groupItemsByLesson(items: VocabItem[]): LessonGroup[] {
   const groups = new Map<string, VocabItem[]>();
   
-  for (const item of items) {
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i];
     if (!groups.has(item.lessonTitle)) {
       groups.set(item.lessonTitle, []);
     }
