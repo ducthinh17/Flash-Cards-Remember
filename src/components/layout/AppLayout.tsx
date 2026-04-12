@@ -65,7 +65,7 @@ export default function AppLayout() {
           </div>
           
           <footer className="mt-12 py-6 text-center text-sm text-gray-400 border-t border-gray-100">
-            &copy; © Copyright 2026 Vicor Pham.
+            &copy;© Copyright 2026 Vicor Pham.
 
           </footer>
         </div>
