@@ -12,6 +12,8 @@ export default function CollectionDetail() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [editingItem, setEditingItem] = useState<VocabItem | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [batchLesson, setBatchLesson] = useState("");
 
   const collection = collections.find(c => c.id === id);
   const collectionItems = vocabItems.filter(v => v.collectionId === id);
@@ -30,7 +32,7 @@ export default function CollectionDetail() {
         term: editingItem.term,
         meaning: editingItem.meaning,
         type: editingItem.type,
-        lessonTitle: editingItem.lessonTitle
+        lessonTitle: editingItem.lessonTitle || ""
       });
       setEditingItem(null);
     }
@@ -40,6 +42,30 @@ export default function CollectionDetail() {
     if (window.confirm("Are you sure you want to delete this vocabulary item?")) {
       deleteVocabItem(itemId);
     }
+  };
+
+  const toggleSelect = (id: string) => {
+    const newSet = new Set(selectedIds);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setSelectedIds(newSet);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filteredItems.length && filteredItems.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredItems.map(i => i.id)));
+    }
+  };
+
+  const handleBatchUpdateLesson = () => {
+    if (!batchLesson.trim() || selectedIds.size === 0) return;
+    selectedIds.forEach(id => {
+      updateVocabItem(id, { lessonTitle: batchLesson.trim() });
+    });
+    setSelectedIds(new Set());
+    setBatchLesson("");
   };
 
   if (!collection) {
@@ -151,15 +177,41 @@ export default function CollectionDetail() {
                 <List className="w-5 h-5 text-gray-400 dark:text-gray-500" />
                 Vocabulary List
               </h2>
-              <div className="relative">
-                <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
-                <input 
-                  type="text" 
-                  placeholder="Search words..." 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full md:w-64 pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm dark:text-white"
-                />
+              <div className="flex items-center gap-4 flex-wrap">
+                {selectedIds.size > 0 && (
+                  <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg border border-blue-100 dark:border-blue-800">
+                    <span className="text-sm font-medium text-blue-700 dark:text-blue-400">
+                      Đã chọn {selectedIds.size} từ:
+                    </span>
+                    <input
+                      type="text"
+                      list="batch-lesson-options"
+                      value={batchLesson}
+                      onChange={(e) => setBatchLesson(e.target.value)}
+                      placeholder="Nhập tên Lesson mới"
+                      className="text-sm px-2 py-1 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-40 dark:text-white"
+                    />
+                    <datalist id="batch-lesson-options">
+                      {lessonGroups.map(g => <option key={g.title} value={g.title} />)}
+                    </datalist>
+                    <button
+                      onClick={handleBatchUpdateLesson}
+                      className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 font-medium whitespace-nowrap"
+                    >
+                      Áp dụng Lesson
+                    </button>
+                  </div>
+                )}
+                <div className="relative">
+                  <Search className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500" />
+                  <input 
+                    type="text" 
+                    placeholder="Search words..." 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full md:w-64 pl-10 pr-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm dark:text-white"
+                  />
+                </div>
               </div>
             </div>
 
@@ -168,6 +220,14 @@ export default function CollectionDetail() {
                 <table className="w-full text-left text-sm whitespace-nowrap">
                   <thead className="bg-gray-50/50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 border-b border-gray-200 dark:border-gray-700">
                     <tr>
+                      <th className="px-4 py-3 font-medium w-10">
+                        <input 
+                          type="checkbox" 
+                          checked={selectedIds.size > 0 && selectedIds.size === filteredItems.length}
+                          onChange={toggleSelectAll}
+                          className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                        />
+                      </th>
                       <th className="px-4 py-3 font-medium">Term</th>
                       <th className="px-4 py-3 font-medium">Type</th>
                       <th className="px-4 py-3 font-medium">Meaning</th>
@@ -178,13 +238,21 @@ export default function CollectionDetail() {
                   <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                     {filteredItems.length === 0 ? (
                       <tr>
-                        <td colSpan={5} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
+                        <td colSpan={6} className="px-4 py-8 text-center text-gray-500 dark:text-gray-400">
                           {searchQuery ? "No words found matching your search." : "No words available."}
                         </td>
                       </tr>
                     ) : (
                       filteredItems.map(item => (
                         <tr key={item.id} className="hover:bg-gray-50/50 dark:hover:bg-gray-700/50 transition-colors">
+                          <td className="px-4 py-3">
+                            <input 
+                              type="checkbox" 
+                              checked={selectedIds.has(item.id)}
+                              onChange={() => toggleSelect(item.id)}
+                              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                            />
+                          </td>
                           <td className="px-4 py-3 font-medium text-gray-900 dark:text-white whitespace-normal min-w-[120px]">{item.term}</td>
                           <td className="px-4 py-3 text-gray-500 dark:text-gray-400">{item.type || '-'}</td>
                           <td className="px-4 py-3 text-gray-600 dark:text-gray-300 whitespace-normal min-w-[200px]">{item.meaning}</td>
@@ -234,7 +302,7 @@ export default function CollectionDetail() {
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Term</label>
                 <input 
                   type="text" 
-                  value={editingItem.term}
+                  value={editingItem.term || ""}
                   onChange={e => setEditingItem({...editingItem, term: e.target.value})}
                   className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-900 dark:text-white"
                   required
@@ -252,25 +320,31 @@ export default function CollectionDetail() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lesson</label>
-                <input 
-                  type="text" 
-                  list="lesson-options"
-                  value={editingItem.lessonTitle}
-                  onChange={e => setEditingItem({...editingItem, lessonTitle: e.target.value})}
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-900 dark:text-white"
-                  placeholder="e.g. Lesson 1"
-                  required
-                />
-                <datalist id="lesson-options">
-                  {lessonGroups.map(group => (
-                    <option key={group.title} value={group.title} />
-                  ))}
-                </datalist>
+                <div className="flex gap-2">
+                  <select
+                    value={lessonGroups.some(g => g.title === editingItem.lessonTitle) ? editingItem.lessonTitle : ""}
+                    onChange={e => setEditingItem({...editingItem, lessonTitle: e.target.value})}
+                    className="w-1/3 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-gray-900 dark:text-white"
+                  >
+                    <option value="" disabled>-- Chọn --</option>
+                    {lessonGroups.map(group => (
+                      <option key={group.title} value={group.title}>{group.title}</option>
+                    ))}
+                  </select>
+                  <input 
+                    type="text" 
+                    value={editingItem.lessonTitle || ""}
+                    onChange={e => setEditingItem({...editingItem, lessonTitle: e.target.value})}
+                    className="flex-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-900 dark:text-white"
+                    placeholder="Nhập tên Lesson..."
+                    required
+                  />
+                </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Meaning</label>
                 <textarea 
-                  value={editingItem.meaning}
+                  value={editingItem.meaning || ""}
                   onChange={e => setEditingItem({...editingItem, meaning: e.target.value})}
                   className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-900 dark:text-white"
                   rows={3}
