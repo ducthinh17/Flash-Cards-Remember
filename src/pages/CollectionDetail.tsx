@@ -29,7 +29,8 @@ export default function CollectionDetail() {
       updateVocabItem(editingItem.id, {
         term: editingItem.term,
         meaning: editingItem.meaning,
-        type: editingItem.type
+        type: editingItem.type,
+        lessonTitle: editingItem.lessonTitle
       });
       setEditingItem(null);
     }
@@ -248,6 +249,23 @@ export default function CollectionDetail() {
                   className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-900 dark:text-white"
                   placeholder="e.g. n, v, adj"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Lesson</label>
+                <input 
+                  type="text" 
+                  list="lesson-options"
+                  value={editingItem.lessonTitle}
+                  onChange={e => setEditingItem({...editingItem, lessonTitle: e.target.value})}
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-900 dark:text-white"
+                  placeholder="e.g. Lesson 1"
+                  required
+                />
+                <datalist id="lesson-options">
+                  {lessonGroups.map(group => (
+                    <option key={group.title} value={group.title} />
+                  ))}
+                </datalist>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Meaning</label>
