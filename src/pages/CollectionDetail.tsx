@@ -181,14 +181,14 @@ export default function CollectionDetail() {
                 {selectedIds.size > 0 && (
                   <div className="flex items-center gap-2 bg-blue-50 dark:bg-blue-900/20 px-3 py-1.5 rounded-lg border border-blue-100 dark:border-blue-800">
                     <span className="text-sm font-medium text-blue-700 dark:text-blue-400">
-                      Đã chọn {selectedIds.size} từ:
+                      Selected {selectedIds.size} words:
                     </span>
                     <input
                       type="text"
                       list="batch-lesson-options"
                       value={batchLesson}
                       onChange={(e) => setBatchLesson(e.target.value)}
-                      placeholder="Nhập tên Lesson mới"
+                      placeholder="Enter new Lesson name"
                       className="text-sm px-2 py-1 rounded bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-40 dark:text-white"
                     />
                     <datalist id="batch-lesson-options">
@@ -198,7 +198,7 @@ export default function CollectionDetail() {
                       onClick={handleBatchUpdateLesson}
                       className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 font-medium whitespace-nowrap"
                     >
-                      Áp dụng Lesson
+                      Apply Lesson
                     </button>
                   </div>
                 )}
@@ -326,7 +326,7 @@ export default function CollectionDetail() {
                     onChange={e => setEditingItem({...editingItem, lessonTitle: e.target.value})}
                     className="w-1/3 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all text-gray-900 dark:text-white"
                   >
-                    <option value="" disabled>-- Chọn --</option>
+                    <option value="" disabled>-- Select --</option>
                     {lessonGroups.map(group => (
                       <option key={group.title} value={group.title}>{group.title}</option>
                     ))}
@@ -336,7 +336,7 @@ export default function CollectionDetail() {
                     value={editingItem.lessonTitle || ""}
                     onChange={e => setEditingItem({...editingItem, lessonTitle: e.target.value})}
                     className="flex-1 px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-gray-900 dark:text-white"
-                    placeholder="Nhập tên Lesson..."
+                    placeholder="Enter Lesson name..."
                     required
                   />
                 </div>
