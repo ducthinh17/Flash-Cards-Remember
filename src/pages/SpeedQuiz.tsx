@@ -2,23 +2,11 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "../store/useStore";
 import { ArrowLeft, Zap } from "lucide-react";
+import confetti from "canvas-confetti";
 import { VocabItem } from "../types";
-import { cn } from "../lib/utils";
+import { cn, shuffleArray } from "../lib/utils";
 
 const TIME_LIMIT = 5; // seconds per question
-
-/**
- * Fisher–Yates shuffle — returns a new array.
- * More uniform than sort(() => Math.random() - 0.5).
- */
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 /**
  * Build the 4 answer options (1 correct + 3 wrong) for a given question.
@@ -29,7 +17,7 @@ function buildOptions(current: VocabItem, allItems: VocabItem[]): string[] {
 
   // Collect unique wrong meanings
   const uniqueWrong = new Set<string>();
-  const pool = shuffle(allItems);
+  const pool = shuffleArray(allItems);
   for (const item of pool) {
     if (item.meaning !== correctMeaning) {
       uniqueWrong.add(item.meaning);
@@ -40,7 +28,7 @@ function buildOptions(current: VocabItem, allItems: VocabItem[]): string[] {
   const options = [...uniqueWrong].slice(0, 3);
   options.push(correctMeaning);
 
-  return shuffle(options);
+  return shuffleArray(options);
 }
 
 export default function SpeedQuiz() {
@@ -78,7 +66,7 @@ export default function SpeedQuiz() {
     // Snapshot vocabulary once for the entire game session
     vocabSnapshotRef.current = [...pool];
 
-    const shuffled = shuffle(pool).slice(0, questionCount);
+    const shuffled = shuffleArray(pool).slice(0, questionCount);
     setItems(shuffled);
     setCurrentIndex(0);
     setScore(0);
@@ -126,10 +114,18 @@ export default function SpeedQuiz() {
     if (currentIndex + 1 >= items.length) {
       setIsGameOver(true);
       recordStudySession();
+      // Only show confetti if they scored perfectly or at least well (let's say perfectly here or >= 80%)
+      if (score + (selectedAnswer === items[currentIndex].meaning ? 1 : 0) === items.length && items.length > 0) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      }
     } else {
       setCurrentIndex((prev) => prev + 1);
     }
-  }, [currentIndex, items.length, recordStudySession]);
+  }, [currentIndex, items, recordStudySession, score, selectedAnswer]);
 
   // ========== HANDLE TIMEOUT ==========
   const handleTimeOut = useCallback(() => {

@@ -2,37 +2,29 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "../store/useStore";
 import { ArrowLeft, CheckCircle, XCircle, Volume2 } from "lucide-react";
+import confetti from "canvas-confetti";
 import { VocabItem } from "../types";
-import { cn } from "../lib/utils";
+import { cn, shuffleArray, getReviewItems } from "../lib/utils";
 import { speakTerm } from "../lib/speech";
 
-// Fisher-Yates shuffle
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
+function buildOptions(current: VocabItem, allItems: VocabItem[], isReverse: boolean): string[] {
+  const correctOption = isReverse ? current.term : current.meaning;
 
-function buildOptions(current: VocabItem, allItems: VocabItem[]): string[] {
-  const correctMeaning = current.meaning;
-
-  // Collect unique wrong meanings
+  // Collect unique wrong answers
   const uniqueWrong = new Set<string>();
-  const pool = shuffle(allItems);
+  const pool = shuffleArray(allItems);
   for (const item of pool) {
-    if (item.meaning !== correctMeaning) {
-      uniqueWrong.add(item.meaning);
+    const wrongOption = isReverse ? item.term : item.meaning;
+    if (wrongOption !== correctOption) {
+      uniqueWrong.add(wrongOption);
     }
     if (uniqueWrong.size >= 3) break;
   }
 
   const options = [...uniqueWrong].slice(0, 3);
-  options.push(correctMeaning);
+  options.push(correctOption);
 
-  return shuffle(options);
+  return shuffleArray(options);
 }
 
 export default function Quiz() {
@@ -49,6 +41,7 @@ export default function Quiz() {
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [isCorrect,      setIsCorrect]      = useState<boolean | null>(null);
   const [score,          setScore]          = useState(0);
+  const [isReverse,      setIsReverse]      = useState(false);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
   const vocabSnapshotRef = useRef<VocabItem[]>([]);
@@ -62,32 +55,22 @@ export default function Quiz() {
     if (isFinished && !sessionRecorded.current) {
       sessionRecorded.current = true;
       recordStudySession();
+      if (score === items.length && items.length > 0) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      }
     }
-  }, [isFinished, recordStudySession]);
+  }, [isFinished, recordStudySession, score, items.length]);
 
   // ── Load / filter items ───────────────────────────────────────────────────
   const initGame = useCallback(() => {
     sessionRecorded.current = false;
     let filtered: typeof vocabItems = [];
     if (collectionId === "review") {
-      if (filterMode === "hard") {
-        filtered = vocabItems.filter(v => v.isHard);
-      } else if (filterMode === "due") {
-        filtered = vocabItems.filter(v => !v.nextReviewAt || new Date(v.nextReviewAt) <= new Date());
-      } else {
-        filtered = vocabItems.filter(
-          v => v.wrongCount > 0 || (v.correctCount === 0 && v.wrongCount === 0) || v.isHard
-        );
-      }
-      filtered = [...filtered]
-        .sort((a, b) => {
-          if (a.isHard && !b.isHard) return -1;
-          if (!a.isHard && b.isHard) return 1;
-          const rA = a.wrongCount / (a.correctCount + a.wrongCount || 1);
-          const rB = b.wrongCount / (b.correctCount + b.wrongCount || 1);
-          return rB - rA;
-        })
-        .slice(0, 50);
+      filtered = getReviewItems(vocabItems, filterMode);
     } else {
       filtered = vocabItems.filter(
         v =>
@@ -98,7 +81,7 @@ export default function Quiz() {
     
     vocabSnapshotRef.current = [...vocabItems]; // Snapshot whole pool for generating options
     
-    setItems(shuffle(filtered));
+    setItems(shuffleArray(filtered));
     setCurrentIndex(0);
     setScore(0);
     setSelectedAnswer(null);
@@ -112,11 +95,11 @@ export default function Quiz() {
   useEffect(() => {
     if (items.length > 0 && currentIndex < items.length) {
       const currentItem = items[currentIndex];
-      setOptions(buildOptions(currentItem, vocabSnapshotRef.current));
+      setOptions(buildOptions(currentItem, vocabSnapshotRef.current, isReverse));
       setSelectedAnswer(null);
       setIsCorrect(null);
     }
-  }, [currentIndex, items]);
+  }, [currentIndex, items, isReverse]);
 
   // ── Loading / empty guard ─────────────────────────────────────────────────
   const collectionName =
@@ -127,12 +110,12 @@ export default function Quiz() {
   if (items.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-4">
-        <p className="text-gray-500 text-lg">
+        <p className="text-gray-500 dark:text-gray-400 text-lg">
           {collectionName ? "No vocabulary found for this filter." : "Collection not found."}
         </p>
         <button
           onClick={() => navigate(-1)}
-          className="text-blue-600 hover:underline text-sm"
+          className="text-blue-600 dark:text-blue-400 hover:underline text-sm"
         >
           ← Go back
         </button>
@@ -145,23 +128,23 @@ export default function Quiz() {
     const percentage = Math.round((score / items.length) * 100);
     return (
       <div className="max-w-md mx-auto text-center py-20 animate-in fade-in zoom-in duration-500">
-        <div className="w-24 h-24 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-6">
+        <div className="w-24 h-24 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-full flex items-center justify-center mx-auto mb-6">
           <span className="text-3xl font-bold">{percentage}%</span>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Quiz Complete!</h2>
-        <p className="text-gray-500 mb-8">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Quiz Complete!</h2>
+        <p className="text-gray-500 dark:text-gray-400 mb-8">
           You scored {score} out of {items.length}.
         </p>
         <div className="flex flex-col gap-3">
           <button
             onClick={initGame}
-            className="w-full py-3 bg-blue-600 text-white rounded-xl font-medium hover:bg-blue-700 transition-colors"
+            className="w-full py-3 bg-blue-600 dark:bg-blue-500 text-white rounded-xl font-medium hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
           >
             Try Again
           </button>
           <button
             onClick={() => navigate(-1)}
-            className="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+            className="w-full py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             Go Back
           </button>
@@ -176,7 +159,8 @@ export default function Quiz() {
   const handleAnswer = (answer: string) => {
     if (selectedAnswer) return;
     setSelectedAnswer(answer);
-    const correct = answer === currentItem.meaning;
+    const correctOption = isReverse ? currentItem.term : currentItem.meaning;
+    const correct = answer === correctOption;
     setIsCorrect(correct);
     if (correct) setScore(s => s + 1);
     updateVocabProgress(currentItem.id, correct);
@@ -188,50 +172,69 @@ export default function Quiz() {
       <header className="flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors"
+          className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Quit Quiz
         </button>
-        <div className="text-sm font-medium text-gray-500">
-          Question {currentIndex + 1} of {items.length}
+        <div className="flex items-center gap-4">
+          <label className="flex items-center gap-2 cursor-pointer">
+            <div className="relative">
+              <input 
+                type="checkbox" 
+                className="sr-only" 
+                checked={isReverse}
+                onChange={() => setIsReverse(!isReverse)}
+              />
+              <div className={`block w-10 h-6 rounded-full transition-colors ${isReverse ? 'bg-purple-500 dark:bg-purple-600' : 'bg-gray-300 dark:bg-gray-600'}`}></div>
+              <div className={`dot absolute left-1 top-1 w-4 h-4 rounded-full transition-transform ${isReverse ? 'transform translate-x-4 bg-white' : 'bg-white dark:bg-gray-200'}`}></div>
+            </div>
+            <span className="text-sm font-medium text-gray-600 dark:text-gray-400">Reverse</span>
+          </label>
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
+            Question {currentIndex + 1} of {items.length}
+          </div>
         </div>
       </header>
 
-      <div className="w-full bg-gray-200 rounded-full h-1.5">
+      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 shadow-inner">
         <div
-          className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
+          className="bg-blue-600 dark:bg-blue-500 h-1.5 rounded-full transition-all duration-300"
           style={{ width: `${(currentIndex / items.length) * 100}%` }}
         />
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-gray-100 p-8 text-center min-h-[200px] flex flex-col justify-center">
-        <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium mb-4 mx-auto">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 p-8 text-center min-h-[200px] flex flex-col justify-center transition-colors">
+        <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full text-xs font-medium mb-4 mx-auto">
           {currentItem.type}
         </span>
-        <h2 className="text-3xl md:text-4xl font-bold text-gray-900">{currentItem.term}</h2>
-        <button
-          onClick={() => speakTerm(currentItem.term)}
-          className="mt-4 mx-auto flex items-center gap-1.5 text-sm text-gray-400 hover:text-blue-600 transition-colors"
-          title="Pronounce"
-        >
-          <Volume2 className="w-4 h-4" />
-          Pronounce
-        </button>
+        <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white">
+          {isReverse ? currentItem.meaning : currentItem.term}
+        </h2>
+        {!isReverse && (
+          <button
+            onClick={() => speakTerm(currentItem.term)}
+            className="mt-4 mx-auto flex items-center gap-1.5 text-sm text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            title="Pronounce"
+          >
+            <Volume2 className="w-4 h-4" />
+            Pronounce
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-3">
         {options.map((option) => {
           const isSelected        = selectedAnswer === option;
-          const isActuallyCorrect = option === currentItem.meaning;
-          let btnClass = "bg-white border-gray-200 text-gray-700 hover:border-blue-300 hover:bg-blue-50";
+          const isActuallyCorrect = option === (isReverse ? currentItem.term : currentItem.meaning);
+          let btnClass = "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:border-blue-300 dark:hover:border-blue-700 hover:bg-blue-50 dark:hover:bg-blue-900/30";
           if (selectedAnswer) {
             if (isActuallyCorrect) {
-              btnClass = "bg-emerald-50 border-emerald-500 text-emerald-700 ring-2 ring-emerald-500 ring-offset-2";
+              btnClass = "bg-emerald-50 dark:bg-emerald-900/30 border-emerald-500 dark:border-emerald-500 text-emerald-700 dark:text-emerald-400 ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-gray-900";
             } else if (isSelected) {
-              btnClass = "bg-red-50 border-red-500 text-red-700 ring-2 ring-red-500 ring-offset-2";
+              btnClass = "bg-red-50 dark:bg-red-900/30 border-red-500 dark:border-red-500 text-red-700 dark:text-red-400 ring-2 ring-red-500 ring-offset-2 dark:ring-offset-gray-900";
             } else {
-              btnClass = "bg-gray-50 border-gray-200 text-gray-400 opacity-50";
+              btnClass = "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-400 dark:text-gray-600 opacity-50";
             }
           }
           return (
@@ -245,8 +248,8 @@ export default function Quiz() {
               )}
             >
               <span>{option}</span>
-              {selectedAnswer && isActuallyCorrect && <CheckCircle className="w-5 h-5 text-emerald-600" />}
-              {selectedAnswer && isSelected && !isActuallyCorrect && <XCircle className="w-5 h-5 text-red-600" />}
+              {selectedAnswer && isActuallyCorrect && <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-500 shrink-0" />}
+              {selectedAnswer && isSelected && !isActuallyCorrect && <XCircle className="w-5 h-5 text-red-600 dark:text-red-500 shrink-0" />}
             </button>
           );
         })}
@@ -256,14 +259,14 @@ export default function Quiz() {
         <div
           className={cn(
             "text-center p-4 rounded-2xl animate-in slide-in-from-top-2 duration-300",
-            isCorrect ? "bg-emerald-100 text-emerald-800" : "bg-red-100 text-red-800"
+            isCorrect ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-400" : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400"
           )}
         >
           <p className="text-lg font-bold">{isCorrect ? "Correct!" : "Incorrect"}</p>
           {!isCorrect && (
-           <p className="text-sm mt-1">
+           <p className="text-sm mt-1 text-gray-700 dark:text-gray-300">
              Correct answer:{" "}
-             <span className="font-bold underline">{currentItem.meaning}</span>
+             <span className="font-bold underline text-gray-900 dark:text-white">{isReverse ? currentItem.term : currentItem.meaning}</span>
            </p>
           )}
         </div>

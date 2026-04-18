@@ -6,15 +6,13 @@ export function normalizeLine(line: string): string {
 }
 
 export function isLessonHeader(line: string): boolean {
-  const lower = line.toLowerCase();
-  if (lower.startsWith("reading passage")) return true;
-  if (lower.startsWith("lesson")) return true;
-  if (lower.startsWith("unit")) return true;
-  if (lower.startsWith("topic")) return true;
+  // Check against common explicit header markers
+  if (/^(reading passage|lesson|unit|topic|week|day|chapter|part|section)\b/i.test(line)) return true;
   
-  // If it's a short line without a colon, it might be a header
-  if (line.length > 0 && line.length < 50 && !line.includes(":")) return true;
-  
+  // Also treat lines starting with "#" or "##" as headers (Markdown style)
+  if (/^#{1,3}\s/.test(line)) return true;
+
+  // No longer greedily matching any short line without colon/parentheses
   return false;
 }
 

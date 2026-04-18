@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { Link } from "react-router-dom";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { useStore } from "../store/useStore";
 import {
   BarChart2,
@@ -35,14 +36,14 @@ function StatCard({
     indigo: "bg-indigo-50 text-indigo-600",
   };
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+    <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex items-center gap-4 transition-colors">
       <div className={cn("w-12 h-12 rounded-full flex items-center justify-center shrink-0", colors[color])}>
         <Icon className="w-6 h-6" />
       </div>
       <div>
-        <p className="text-sm font-medium text-gray-500">{label}</p>
-        <p className="text-2xl font-semibold text-gray-900">{value}</p>
-        {sub && <p className="text-xs text-gray-400 mt-0.5">{sub}</p>}
+        <p className="text-sm font-medium text-gray-500 dark:text-gray-400">{label}</p>
+        <p className="text-2xl font-semibold text-gray-900 dark:text-white">{value}</p>
+        {sub && <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">{sub}</p>}
       </div>
     </div>
   );
@@ -51,7 +52,7 @@ function StatCard({
 /** Simple horizontal bar */
 function AccuracyBar({ value }: { value: number }) {
   return (
-    <div className="w-full bg-gray-100 rounded-full h-2 mt-1">
+    <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2 mt-1">
       <div
         className={cn(
           "h-2 rounded-full transition-all duration-500",
@@ -79,7 +80,7 @@ function StudyHeatmap({ history }: { history: string[] }) {
 
   return (
     <div>
-      <p className="text-sm font-medium text-gray-700 mb-3">Study Activity — Last 28 Days</p>
+      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">Study Activity — Last 28 Days</p>
       <div className="grid grid-cols-14 gap-1.5" style={{ gridTemplateColumns: "repeat(14, minmax(0,1fr))" }}>
         {days.map((day, i) => (
           <div
@@ -87,14 +88,52 @@ function StudyHeatmap({ history }: { history: string[] }) {
             title={day.date.toDateString()}
             className={cn(
               "aspect-square rounded-sm",
-              day.studied ? "bg-emerald-400" : "bg-gray-100"
+              day.studied ? "bg-emerald-400 dark:bg-emerald-500" : "bg-gray-100 dark:bg-gray-700"
             )}
           />
         ))}
       </div>
-      <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
-        <span className="w-3 h-3 rounded-sm bg-gray-100 inline-block" /> No study
-        <span className="w-3 h-3 rounded-sm bg-emerald-400 inline-block ml-2" /> Studied
+      <div className="flex items-center gap-2 mt-2 text-xs text-gray-400 dark:text-gray-500">
+        <span className="w-3 h-3 rounded-sm bg-gray-100 dark:bg-gray-700 inline-block" /> No study
+        <span className="w-3 h-3 rounded-sm bg-emerald-400 dark:bg-emerald-500 inline-block ml-2" /> Studied
+      </div>
+    </div>
+  );
+}
+
+/** Line chart for study sessions over the last 14 days */
+function StudyLineChart({ history }: { history: string[] }) {
+  const data = useMemo(() => {
+    const result = [];
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const dayStr = d.toDateString();
+      const sessions = history.filter(h => new Date(h).toDateString() === dayStr).length;
+      result.push({
+        date: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+        sessions
+      });
+    }
+    return result;
+  }, [history]);
+
+  return (
+    <div>
+      <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Study Sessions — Last 14 Days</p>
+      <div className="h-40 w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f3f4f6" className="dark:stroke-gray-700" />
+            <XAxis dataKey="date" tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+            <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: "#6b7280" }} axisLine={false} tickLine={false} />
+            <Tooltip 
+              contentStyle={{ borderRadius: '0.75rem', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+              wrapperClassName="dark:!bg-gray-800 dark:!text-white"
+            />
+            <Line type="monotone" dataKey="sessions" stroke="#8b5cf6" strokeWidth={3} dot={{ r: 4, fill: "#8b5cf6", strokeWidth: 2, stroke: "#fff" }} activeDot={{ r: 6 }} name="Sessions" />
+          </LineChart>
+        </ResponsiveContainer>
       </div>
     </div>
   );
@@ -154,11 +193,11 @@ export default function Stats() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
       <header>
-        <h1 className="text-3xl font-semibold tracking-tight text-gray-900 flex items-center gap-3">
-          <BarChart2 className="w-8 h-8 text-purple-600" />
+        <h1 className="text-3xl font-semibold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
+          <BarChart2 className="w-8 h-8 text-purple-600 dark:text-purple-400" />
           Progress & Statistics
         </h1>
-        <p className="text-gray-500 mt-1">
+        <p className="text-gray-500 dark:text-gray-400 mt-1">
           Track your learning journey and identify areas for improvement.
         </p>
       </header>
@@ -175,19 +214,24 @@ export default function Stats() {
         <StatCard icon={XCircle} label="Need Review" value={vocabItems.filter(v => v.wrongCount > v.correctCount).length} sub="more wrong than right" color="red" />
       </div>
 
-      {/* Study Heatmap */}
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100">
-        <StudyHeatmap history={studyHistory} />
+      {/* Study Charts */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col justify-center transition-colors">
+          <StudyHeatmap history={studyHistory} />
+        </div>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col justify-center transition-colors">
+          <StudyLineChart history={studyHistory} />
+        </div>
       </div>
 
       {/* Collection Breakdown */}
       {collectionStats.length > 0 && (
         <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">By Collection</h2>
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">By Collection</h2>
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
+                <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 font-medium border-b border-gray-100 dark:border-gray-700">
                   <tr>
                     <th className="px-6 py-4">Collection</th>
                     <th className="px-6 py-4">Words</th>
@@ -195,20 +239,20 @@ export default function Stats() {
                     <th className="px-6 py-4 min-w-[160px]">Accuracy</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                   {collectionStats.map(c => (
-                    <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 font-medium text-gray-900">
-                        <Link to={`/collections/${c.id}`} className="hover:text-blue-600 hover:underline">
+                    <tr key={c.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                      <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
+                        <Link to={`/collections/${c.id}`} className="hover:text-blue-600 dark:hover:text-blue-400 hover:underline">
                           {c.name}
                         </Link>
                       </td>
-                      <td className="px-6 py-4 text-gray-600">{c.wordCount}</td>
-                      <td className="px-6 py-4 text-gray-600">{c.reviewed}</td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{c.wordCount}</td>
+                      <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{c.reviewed}</td>
                       <td className="px-6 py-4">
                         <span className={cn(
                           "font-medium",
-                          c.accuracy >= 70 ? "text-emerald-600" : c.accuracy >= 40 ? "text-amber-600" : "text-red-600"
+                          c.accuracy >= 70 ? "text-emerald-600 dark:text-emerald-400" : c.accuracy >= 40 ? "text-amber-600 dark:text-amber-400" : "text-red-600 dark:text-red-400"
                         )}>
                           {c.reviewed === 0 ? "—" : `${c.accuracy}%`}
                         </span>
@@ -226,13 +270,13 @@ export default function Stats() {
       {/* Hardest Words */}
       {hardestWords.length > 0 && (
         <section>
-          <h2 className="text-lg font-semibold text-gray-900 mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Top {hardestWords.length} Hardest Words
           </h2>
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden transition-colors">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
-                <thead className="bg-gray-50 text-gray-500 font-medium border-b border-gray-100">
+                <thead className="bg-gray-50 dark:bg-gray-900/50 text-gray-500 dark:text-gray-400 font-medium border-b border-gray-100 dark:border-gray-700">
                   <tr>
                     <th className="px-6 py-4">#</th>
                     <th className="px-6 py-4">Word</th>
@@ -240,27 +284,27 @@ export default function Stats() {
                     <th className="px-6 py-4 text-right">Accuracy</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
                   {hardestWords.map((w, idx) => {
                     const total = w.correctCount + w.wrongCount;
                     const acc = Math.round((w.correctCount / total) * 100);
                     return (
-                      <tr key={w.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-6 py-4 text-gray-400 font-mono">{idx + 1}</td>
-                        <td className="px-6 py-4 font-medium text-gray-900 flex items-center gap-2">
+                      <tr key={w.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
+                        <td className="px-6 py-4 text-gray-400 dark:text-gray-500 font-mono">{idx + 1}</td>
+                        <td className="px-6 py-4 font-medium text-gray-900 dark:text-white flex items-center gap-2">
                           {w.isHard && <Star className="w-3.5 h-3.5 text-amber-500 fill-current" />}
                           {w.term}
-                          <span className="text-xs text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">{w.type}</span>
+                          <span className="text-xs text-gray-400 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">{w.type}</span>
                         </td>
-                        <td className="px-6 py-4 text-gray-600">{w.meaning}</td>
+                        <td className="px-6 py-4 text-gray-600 dark:text-gray-300">{w.meaning}</td>
                         <td className="px-6 py-4 text-right">
                           <span className={cn(
                             "font-semibold",
-                            acc < 40 ? "text-red-600" : acc < 70 ? "text-amber-600" : "text-emerald-600"
+                            acc < 40 ? "text-red-600 dark:text-red-400" : acc < 70 ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
                           )}>
                             {acc}%
                           </span>
-                          <p className="text-xs text-gray-400">
+                          <p className="text-xs text-gray-400 dark:text-gray-500">
                             {w.correctCount}✓ {w.wrongCount}✗
                           </p>
                         </td>
@@ -275,13 +319,13 @@ export default function Stats() {
       )}
 
       {totalWords === 0 && (
-        <div className="bg-white border border-dashed border-gray-300 rounded-2xl p-12 text-center">
-          <BarChart2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-lg font-medium text-gray-900 mb-2">No data yet</h2>
-          <p className="text-gray-500 mb-6">Import vocabulary and start studying to see your stats here.</p>
+        <div className="bg-white dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-700 rounded-2xl p-12 text-center transition-colors">
+          <BarChart2 className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No data yet</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">Import vocabulary and start studying to see your stats here.</p>
           <Link
             to="/import"
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center gap-2 bg-blue-600 dark:bg-blue-500 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
           >
             Add Vocabulary
           </Link>

@@ -9,8 +9,11 @@ export default function Collections() {
     <div className="space-y-8 animate-in fade-in duration-500">
       <header className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-semibold tracking-tight text-gray-900">Collections</h1>
-          <p className="text-gray-500 mt-1">Manage your vocabulary projects and topics.</p>
+          <h1 className="text-3xl font-semibold tracking-tight text-gray-900 dark:text-white flex items-center gap-3">
+            <BookOpen className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+            Collections
+          </h1>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Manage your vocabulary projects and topics.</p>
         </div>
         <Link 
           to="/import"
@@ -22,10 +25,10 @@ export default function Collections() {
       </header>
 
       {collections.length === 0 ? (
-        <div className="bg-white border border-dashed border-gray-300 rounded-2xl p-12 text-center max-w-lg mx-auto mt-12">
-          <BookOpen className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-          <h2 className="text-lg font-medium text-gray-900 mb-2">No collections yet</h2>
-          <p className="text-gray-500 mb-6">Create your first collection by importing some vocabulary.</p>
+        <div className="bg-white dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-700 rounded-2xl p-12 text-center max-w-lg mx-auto mt-12 transition-colors">
+          <BookOpen className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-4" />
+          <h2 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No collections yet</h2>
+          <p className="text-gray-500 dark:text-gray-400 mb-6">Create your first collection by importing some vocabulary.</p>
           <Link 
             to="/import"
             className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-lg font-medium hover:bg-blue-700 transition-colors"
@@ -41,10 +44,10 @@ export default function Collections() {
             const uniqueLessons = new Set(collectionItems.map(v => v.lessonTitle)).size;
             
             return (
-              <div key={collection.id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col">
+              <div key={collection.id} className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col transition-colors">
                 <div className="p-5 flex-1">
                   <div className="flex justify-between items-start mb-2">
-                    <h3 className="font-semibold text-lg text-gray-900 line-clamp-1" title={collection.name}>
+                    <h3 className="font-semibold text-lg text-gray-900 dark:text-white line-clamp-1" title={collection.name}>
                       {collection.name}
                     </h3>
                     <button 
@@ -53,31 +56,31 @@ export default function Collections() {
                           deleteCollection(collection.id);
                         }
                       }}
-                      className="text-gray-400 hover:text-red-500 p-1 rounded-md hover:bg-red-50 transition-colors"
+                      className="text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 p-1 rounded-md hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
                       title="Delete Collection"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
-                  <div className="flex gap-4 mt-4 text-sm text-gray-500">
+                  <div className="flex gap-4 mt-4 text-sm text-gray-500 dark:text-gray-400">
                     <div>
-                      <span className="font-medium text-gray-900">{uniqueLessons}</span> lessons
+                      <span className="font-medium text-gray-900 dark:text-gray-200">{uniqueLessons}</span> lessons
                     </div>
                     <div>
-                      <span className="font-medium text-gray-900">{collectionItems.length}</span> words
+                      <span className="font-medium text-gray-900 dark:text-gray-200">{collectionItems.length}</span> words
                     </div>
                   </div>
                 </div>
-                <div className="bg-gray-50 px-5 py-3 border-t border-gray-100 flex gap-2">
+                <div className="bg-gray-50 dark:bg-gray-900/50 px-5 py-3 border-t border-gray-100 dark:border-gray-700 flex gap-2">
                   <Link 
                     to={`/collections/${collection.id}`}
-                    className="flex-1 text-center bg-white border border-gray-200 text-gray-700 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors"
+                    className="flex-1 text-center bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 py-1.5 rounded-lg text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
                   >
                     Open
                   </Link>
                   <Link 
                     to={`/study/${collection.id}`}
-                    className="flex-1 text-center bg-blue-50 text-blue-700 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-100 transition-colors"
+                    className="flex-1 text-center bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 py-1.5 rounded-lg text-sm font-medium hover:bg-blue-100 dark:hover:bg-blue-900/60 transition-colors"
                   >
                     Study
                   </Link>

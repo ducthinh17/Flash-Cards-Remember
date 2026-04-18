@@ -14,18 +14,24 @@ interface AppState {
   lastStudiedDate: string | null;
   studyHistory: string[]; // ISO date strings of days studied (last 90 days)
 
+  // Appearance
+  theme: 'light' | 'dark';
+
   addCollection: (name: string) => Collection;
   deleteCollection: (id: string) => void;
   updateCollection: (id: string, name: string) => void;
 
   addVocabItems: (items: Omit<VocabItem, 'id' | 'createdAt' | 'correctCount' | 'wrongCount' | 'easeFactor' | 'interval' | 'isHard' | 'nextReviewAt'>[]) => void;
   deleteVocabItem: (id: string) => void;
+  updateVocabItem: (id: string, updates: Partial<VocabItem>) => void;
 
   updateVocabProgress: (id: string, isCorrect: boolean) => void;
   toggleHardWord: (id: string) => void;
 
   /** Call after any study session completes at least 1 word */
   recordStudySession: () => void;
+
+  setTheme: (theme: 'light' | 'dark') => void;
 }
 
 export const useStore = create<AppState>()(
@@ -37,6 +43,7 @@ export const useStore = create<AppState>()(
       longestStreak: 0,
       lastStudiedDate: null,
       studyHistory: [],
+      theme: 'light',
 
       addCollection: (name: string) => {
         const newCollection: Collection = {
@@ -100,6 +107,14 @@ export const useStore = create<AppState>()(
       deleteVocabItem: (id: string) => {
         set((state) => ({
           vocabItems: state.vocabItems.filter(v => v.id !== id),
+        }));
+      },
+
+      updateVocabItem: (id: string, updates: Partial<VocabItem>) => {
+        set((state) => ({
+          vocabItems: state.vocabItems.map(v => 
+            v.id === id ? { ...v, ...updates } : v
+          ),
         }));
       },
 
@@ -188,6 +203,8 @@ export const useStore = create<AppState>()(
           };
         });
       },
+
+      setTheme: (theme: 'light' | 'dark') => set({ theme }),
     }),
     {
       name: 'flashcard-storage',

@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "../store/useStore";
 import { ArrowLeft, CheckCircle, RotateCcw, Volume2, Lightbulb } from "lucide-react";
+import confetti from "canvas-confetti";
 import { VocabItem } from "../types";
-import { cn } from "../lib/utils";
+import { cn, getReviewItems, shuffleArray } from "../lib/utils";
 import { speakTerm } from "../lib/speech";
 
 export default function ActiveRecall() {
@@ -35,24 +36,7 @@ export default function ActiveRecall() {
   useEffect(() => {
     let filtered: typeof vocabItems = [];
     if (collectionId === 'review') {
-      if (filterMode === 'hard') {
-        filtered = vocabItems.filter(v => v.isHard);
-      } else if (filterMode === 'due') {
-        filtered = vocabItems.filter(v => !v.nextReviewAt || new Date(v.nextReviewAt) <= new Date());
-      } else {
-        filtered = vocabItems.filter(
-          v => v.wrongCount > 0 || (v.correctCount === 0 && v.wrongCount === 0) || v.isHard
-        );
-      }
-      filtered = [...filtered]
-        .sort((a, b) => {
-          if (a.isHard && !b.isHard) return -1;
-          if (!a.isHard && b.isHard) return 1;
-          const rA = a.wrongCount / (a.correctCount + a.wrongCount || 1);
-          const rB = b.wrongCount / (b.correctCount + b.wrongCount || 1);
-          return rB - rA;
-        })
-        .slice(0, 50);
+      filtered = getReviewItems(vocabItems, filterMode);
     } else {
       filtered = vocabItems.filter(
         v =>
@@ -60,7 +44,7 @@ export default function ActiveRecall() {
           (!lessonTitle || v.lessonTitle === decodeURIComponent(lessonTitle))
       );
     }
-    setItems([...filtered].sort(() => Math.random() - 0.5));
+    setItems(shuffleArray([...filtered]));
   }, [collectionId, lessonTitle, filterMode, vocabItems]);
 
   // Focus and auto-play on word change
@@ -94,14 +78,26 @@ export default function ActiveRecall() {
       sessionRecorded.current = true;
       setSessionDone(true);
       recordStudySession();
+      
+      const percentage = items.length > 0 ? Math.round(((items.length - missedWordIds.length) / items.length) * 100) : 0;
+      if (percentage >= 80 && items.length > 0) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      }
     }
   }, [isFinished, recordStudySession]);
 
-  if (!collection || items.length === 0) {
+  const isReviewMode = collectionId === "review";
+  const currentCollection = isReviewMode ? { id: "review", name: "Review Session" } : collection;
+
+  if (!currentCollection || items.length === 0) {
     return (
       <div className="text-center py-20">
-        <h2 className="text-xl font-semibold text-gray-900">No vocabulary found</h2>
-        <button onClick={() => navigate(-1)} className="text-blue-600 mt-4 hover:underline">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">No vocabulary found</h2>
+        <button onClick={() => navigate(-1)} className="text-blue-600 dark:text-blue-400 mt-4 hover:underline">
           Go back
         </button>
       </div>
@@ -190,12 +186,17 @@ export default function ActiveRecall() {
   };
 
   const handleRestart = () => {
-    const filtered = vocabItems.filter(
-      v =>
-        v.collectionId === collectionId &&
-        (!lessonTitle || v.lessonTitle === decodeURIComponent(lessonTitle))
-    );
-    setItems([...filtered].sort(() => Math.random() - 0.5));
+    let filtered: typeof vocabItems = [];
+    if (collectionId === 'review') {
+      filtered = getReviewItems(vocabItems, filterMode);
+    } else {
+      filtered = vocabItems.filter(
+        v =>
+          v.collectionId === collectionId &&
+          (!lessonTitle || v.lessonTitle === decodeURIComponent(lessonTitle))
+      );
+    }
+    setItems(shuffleArray([...filtered]));
     setCurrentIndex(0);
     setScore(0);
     setInput("");
@@ -236,29 +237,29 @@ export default function ActiveRecall() {
           className={cn(
             "w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-6",
             percentage >= 80
-              ? "bg-purple-50 text-purple-600"
+              ? "bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400"
               : percentage >= 50
-              ? "bg-amber-50 text-amber-600"
-              : "bg-red-50 text-red-600"
+              ? "bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+              : "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400"
           )}
         >
           <span className="text-3xl font-bold">{percentage}%</span>
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Active Recall Complete!</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Active Recall Complete!</h2>
 
         <div className="flex gap-4 justify-center mb-6">
-          <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-5 py-3">
-            <p className="text-2xl font-bold text-emerald-700">{gotItCount}</p>
-            <p className="text-xs text-emerald-600 mt-0.5">Correct ✓</p>
+          <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 rounded-xl px-5 py-3">
+            <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{gotItCount}</p>
+            <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-0.5">Correct ✓</p>
           </div>
-          <div className="bg-red-50 border border-red-100 rounded-xl px-5 py-3">
-            <p className="text-2xl font-bold text-red-700">{reviewCount}</p>
-            <p className="text-xs text-red-600 mt-0.5">Missed ✗</p>
+          <div className="bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-xl px-5 py-3">
+            <p className="text-2xl font-bold text-red-700 dark:text-red-400">{reviewCount}</p>
+            <p className="text-xs text-red-600 dark:text-red-500 mt-0.5">Missed ✗</p>
           </div>
         </div>
 
-        <p className="text-gray-500 mb-8">
-          You typed {score} out of {items.length} correctly on first try.
+        <p className="text-gray-500 dark:text-gray-400 mb-8">
+          You typed <span className="font-semibold text-gray-900 dark:text-white">{score}</span> out of {items.length} correctly on first try.
         </p>
 
         <div className="flex flex-col gap-3">
@@ -281,10 +282,10 @@ export default function ActiveRecall() {
           </button>
           <button
             type="button"
-            onClick={() => navigate(`/collections/${collectionId}`)}
-            className="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+            onClick={() => navigate(isReviewMode ? "/review" : `/collections/${collectionId}`)}
+            className="w-full py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
-            Back to Collection
+            Back to {isReviewMode ? "Review" : "Collection"}
           </button>
         </div>
       </div>
@@ -298,9 +299,9 @@ export default function ActiveRecall() {
        const inpChar = input[i];
        const ansChar = termAnswer[i];
        if (inpChar.toLowerCase() === ansChar?.toLowerCase()) {
-           chars.push(<span key={i} className="text-emerald-500 font-medium">{inpChar}</span>);
+           chars.push(<span key={i} className="text-emerald-500 dark:text-emerald-400 font-medium">{inpChar}</span>);
        } else {
-           chars.push(<span key={i} className="text-red-500 font-medium underline decoration-red-300 underline-offset-4 bg-red-50">{inpChar}</span>);
+           chars.push(<span key={i} className="text-red-500 dark:text-red-400 font-medium underline decoration-red-300 dark:decoration-red-800 underline-offset-4 bg-red-50 dark:bg-red-900/30">{inpChar}</span>);
        }
     }
     return chars;
@@ -310,26 +311,26 @@ export default function ActiveRecall() {
     <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in duration-300 pb-16">
       <header className="flex items-center justify-between">
         <button
-          onClick={() => navigate(`/collections/${collectionId}`)}
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors"
+          onClick={() => navigate(isReviewMode ? "/review" : `/collections/${collectionId}`)}
+          className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Quit
         </button>
         <div className="flex items-center gap-3">
           {reviewAgainSet.size > 0 && (
-            <span className="flex items-center gap-1 text-xs bg-red-50 text-red-600 border border-red-100 px-2.5 py-1 rounded-full">
+            <span className="flex items-center gap-1 text-xs bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-800 px-2.5 py-1 rounded-full">
               <RotateCcw className="w-3 h-3" />
               {reviewAgainSet.size} to review
             </span>
           )}
-          <div className="text-sm font-medium text-gray-500">
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
             Word {currentIndex + 1} of {items.length}
           </div>
         </div>
       </header>
 
-      <div className="w-full bg-gray-200 rounded-full h-1.5 shadow-inner">
+      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5 shadow-inner">
         <div
           className="bg-purple-600 h-1.5 rounded-full transition-all duration-300"
           style={{ width: `${(currentIndex / items.length) * 100}%` }}
@@ -337,7 +338,7 @@ export default function ActiveRecall() {
       </div>
 
       {isReviewAgainCard && (
-        <div className="flex items-center justify-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-xl py-2 animate-in slide-in-from-top-2">
+        <div className="flex items-center justify-center gap-2 text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800 rounded-xl py-2 animate-in slide-in-from-top-2">
           <RotateCcw className="w-4 h-4" />
           Review card — needs more practice
         </div>
@@ -346,23 +347,23 @@ export default function ActiveRecall() {
       <div
         className={cn(
           "rounded-3xl shadow-sm border p-8 text-center min-h-[200px] flex flex-col justify-center relative",
-          isReviewAgainCard ? "bg-amber-50 border-amber-200" : "bg-white border-gray-100"
+          isReviewAgainCard ? "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800" : "bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700"
         )}
       >
         <div className="absolute top-4 right-4 pb-2">
            <button 
              type="button"
              onClick={() => currentItem && speakTerm(currentItem.term)}
-             className="p-3 bg-gray-50 hover:bg-gray-100 text-gray-700 rounded-full transition-colors active:scale-95 shadow-sm"
+             className="p-3 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-full transition-colors active:scale-95 shadow-sm"
              aria-label="Hear pronunciation"
            >
               <Volume2 className="w-5 h-5" />
            </button>
         </div>
-        <span className="px-3 py-1 bg-gray-100 text-gray-600 rounded-full text-xs font-medium mb-4 mx-auto mt-2">
+        <span className="px-3 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full text-xs font-medium mb-4 mx-auto mt-2">
           {currentItem?.type}
         </span>
-        <h2 className="text-3xl md:text-4xl font-medium text-gray-900 px-4">
+        <h2 className="text-3xl md:text-4xl font-medium text-gray-900 dark:text-white px-4">
           {currentItem?.meaning}
         </h2>
       </div>
@@ -373,9 +374,9 @@ export default function ActiveRecall() {
           <div 
              onClick={() => inputRef.current?.focus()}
              className={cn(
-            "relative flex-1 rounded-2xl border-2 transition-colors duration-200 bg-white cursor-text overflow-hidden",
-            isMatched ? "border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]" : "border-gray-200 focus-within:border-purple-500",
-            shake ? "animate-[shake_0.5s_ease-in-out]" : "" // custom inline shake or tailwind animation
+            "relative flex-1 rounded-2xl border-2 transition-colors duration-200 bg-white dark:bg-gray-800 cursor-text overflow-hidden",
+            isMatched ? "border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)]" : "border-gray-200 dark:border-gray-700 focus-within:border-purple-500 dark:focus-within:border-purple-400",
+            shake ? "animate-shake" : ""
           )}>
             
             <style>
@@ -411,16 +412,15 @@ export default function ActiveRecall() {
             >
                <div className="flex items-center max-w-full overflow-hidden">
                  {input.length === 0 && (
-                    <span className="text-gray-300 font-light text-2xl tracking-wide absolute shrink-0 truncate max-w-full italic px-4">
+                    <span className="text-gray-300 dark:text-gray-600 font-light text-2xl tracking-wide absolute shrink-0 truncate max-w-full italic px-4">
                       Type the word...
                     </span>
                  )}
                  <div className="font-mono tracking-tighter sm:tracking-tight flex overflow-x-auto no-scrollbar items-center justify-center w-full">
                     {renderStyledInput()}
                  </div>
-                 {/* Mock Caret when not matched and input is active focus */}
                  {!isMatched && (
-                   <span className="inline-block w-[3px] h-8 sm:h-10 ml-0.5 bg-gray-800 animate-pulse rounded-full opacity-80 shrink-0" />
+                   <span className="inline-block w-[3px] h-8 sm:h-10 ml-0.5 bg-gray-800 dark:bg-gray-200 animate-pulse rounded-full opacity-80 shrink-0" />
                  )}
                </div>
             </div>
@@ -436,7 +436,7 @@ export default function ActiveRecall() {
               type="button"
               onClick={handleHint}
               onMouseDown={(e) => e.preventDefault() /* prevent input blur */}
-              className="flex items-center justify-center px-4 sm:px-6 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-2xl transition-colors shrink-0 font-medium border-2 border-amber-200 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
+              className="flex items-center justify-center px-4 sm:px-6 bg-amber-50 dark:bg-amber-900/30 hover:bg-amber-100 dark:hover:bg-amber-900/50 text-amber-700 dark:text-amber-400 rounded-2xl transition-colors shrink-0 font-medium border-2 border-amber-200 dark:border-amber-800 focus:outline-none focus:ring-2 focus:ring-amber-500 shadow-sm"
               title="Get a hint (Marks word for review)"
             >
               <Lightbulb className="w-5 h-5 sm:w-6 sm:h-6 sm:mr-1 mb-0.5" /> <span className="hidden sm:inline">Hint</span>
@@ -446,9 +446,9 @@ export default function ActiveRecall() {
         </div>
 
         {isMatched && (
-           <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 text-center animate-in slide-in-from-top-2 shadow-sm mt-6">
-            <p className="text-sm text-emerald-700 font-medium mb-1">Excellent!</p>
-            <p className="text-3xl font-bold text-emerald-900 mb-4">{currentItem.term}</p>
+           <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 rounded-2xl p-4 text-center animate-in slide-in-from-top-2 shadow-sm mt-6">
+            <p className="text-sm text-emerald-700 dark:text-emerald-400 font-medium mb-1">Excellent!</p>
+            <p className="text-3xl font-bold text-emerald-900 dark:text-emerald-100 mb-4">{currentItem.term}</p>
             <button
               type="submit"
               autoFocus

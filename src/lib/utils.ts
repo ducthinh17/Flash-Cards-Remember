@@ -56,3 +56,39 @@ export function formatTime(seconds: number): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+/** Fisher-Yates shuffle array */
+export function shuffleArray<T>(array: T[]): T[] {
+  const arr = [...array];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+import type { VocabItem } from "../types";
+
+/** Extract common review filter logic shared between Study, Quiz, and ActiveRecall */
+export function getReviewItems(vocabItems: VocabItem[], filterMode: string): VocabItem[] {
+  let filtered = [...vocabItems];
+  if (filterMode === "hard") {
+    filtered = filtered.filter((v) => v.isHard);
+  } else if (filterMode === "due") {
+    filtered = filtered.filter(
+      (v) => !v.nextReviewAt || new Date(v.nextReviewAt) <= new Date()
+    );
+  } else {
+    filtered = filtered.filter(
+      (v) => v.wrongCount > 0 || (v.correctCount === 0 && v.wrongCount === 0) || v.isHard
+    );
+  }
+  return filtered
+    .sort((a, b) => {
+      if (a.isHard && !b.isHard) return -1;
+      if (!a.isHard && b.isHard) return 1;
+      const ratioA = a.wrongCount / (a.correctCount + a.wrongCount || 1);
+      const ratioB = b.wrongCount / (b.correctCount + b.wrongCount || 1);
+      return ratioB - ratioA;
+    })
+    .slice(0, 50);
+}

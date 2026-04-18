@@ -2,8 +2,9 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "../store/useStore";
 import { ArrowLeft, CheckCircle } from "lucide-react";
-import { cn } from "../lib/utils";
+import { cn, shuffleArray } from "../lib/utils";
 import { speakTerm } from "../lib/speech";
+import confetti from "canvas-confetti";
 import { VocabItem } from "../types";
 
 type Card = {
@@ -14,16 +15,6 @@ type Card = {
   isMatched: boolean;
   isSelected: boolean;
 };
-
-// Fisher-Yates shuffle
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
 
 export default function MatchingGame() {
   const { collectionId } = useParams<{ collectionId?: string }>();
@@ -47,7 +38,7 @@ export default function MatchingGame() {
     if (pool.length === 0) return;
 
     // Pick N random pairs
-    const selectedItems = shuffle(pool).slice(0, pairCount);
+    const selectedItems = shuffleArray(pool).slice(0, pairCount);
     
     const newCards: Card[] = [];
     selectedItems.forEach(item => {
@@ -69,7 +60,7 @@ export default function MatchingGame() {
       });
     });
 
-    setCards(shuffle(newCards));
+    setCards(shuffleArray(newCards));
     setSelectedCards([]);
     setIsWon(false);
     setMistakes(0);
@@ -132,6 +123,11 @@ export default function MatchingGame() {
     if (cards.length > 0 && cards.every(c => c.isMatched) && !isWon) {
       setIsWon(true);
       recordStudySession();
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
     }
   }, [cards, isWon, recordStudySession]);
 

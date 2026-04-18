@@ -3,7 +3,8 @@ import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useStore } from "../store/useStore";
 import { speakTerm, speakTermMultipleTimes, stopSpeaking, isChinese } from "../lib/speech";
 import { ArrowLeft, Volume2, CheckCircle, XCircle, Star, Repeat, RotateCcw, Keyboard } from "lucide-react";
-import { cn } from "../lib/utils";
+import confetti from "canvas-confetti";
+import { cn, getReviewItems } from "../lib/utils";
 import { VocabItem } from "../types";
 
 
@@ -29,25 +30,7 @@ export default function Study() {
 
   const [items, setItems] = useState<VocabItem[]>(() => {
     if (collectionId === "review") {
-      let filtered = [...vocabItems];
-      if (filterMode === "hard") {
-        filtered = filtered.filter(v => v.isHard);
-      } else if (filterMode === "due") {
-        filtered = filtered.filter(v => !v.nextReviewAt || new Date(v.nextReviewAt) <= new Date());
-      } else {
-        filtered = filtered.filter(
-          v => v.wrongCount > 0 || (v.correctCount === 0 && v.wrongCount === 0) || v.isHard
-        );
-      }
-      return filtered
-        .sort((a, b) => {
-          if (a.isHard && !b.isHard) return -1;
-          if (!a.isHard && b.isHard) return 1;
-          const ratioA = a.wrongCount / (a.correctCount + a.wrongCount || 1);
-          const ratioB = b.wrongCount / (b.correctCount + b.wrongCount || 1);
-          return ratioB - ratioA;
-        })
-        .slice(0, 50);
+      return getReviewItems(vocabItems, filterMode);
     }
     return vocabItems.filter(
       v =>
@@ -139,14 +122,23 @@ export default function Study() {
       sessionRecorded.current = true;
       setSessionDone(true);
       recordStudySession();
+      
+      const percentage = items.length > 0 ? Math.round(((items.length - missedWordIds.length) / items.length) * 100) : 0;
+      if (percentage >= 80 && items.length > 0) {
+        confetti({
+          particleCount: 100,
+          spread: 70,
+          origin: { y: 0.6 }
+        });
+      }
     }
   }, [isFinished]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!collectionName || items.length === 0) {
     return (
       <div className="text-center py-20">
-        <h2 className="text-xl font-semibold text-gray-900">No vocabulary found to study</h2>
-        <button onClick={() => navigate(-1)} className="text-blue-600 mt-4 hover:underline">
+        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">No vocabulary found to study</h2>
+        <button onClick={() => navigate(-1)} className="text-blue-600 dark:text-blue-400 mt-4 hover:underline">
           Go back
         </button>
       </div>
@@ -202,22 +194,22 @@ export default function Study() {
         >
           <CheckCircle className="w-10 h-10" />
         </div>
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Session Complete!</h2>
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Session Complete!</h2>
 
         <div className="flex gap-4 justify-center mb-6">
-          <div className="bg-emerald-50 border border-emerald-100 rounded-xl px-5 py-3">
-            <p className="text-2xl font-bold text-emerald-700">{gotItCount}</p>
-            <p className="text-xs text-emerald-600 mt-0.5">Got It ✓</p>
+          <div className="bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-100 dark:border-emerald-800 rounded-xl px-5 py-3">
+            <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{gotItCount}</p>
+            <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-0.5">Got It ✓</p>
           </div>
-          <div className="bg-red-50 border border-red-100 rounded-xl px-5 py-3">
-            <p className="text-2xl font-bold text-red-700">{reviewCount}</p>
-            <p className="text-xs text-red-600 mt-0.5">Review Again ✗</p>
+          <div className="bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-xl px-5 py-3">
+            <p className="text-2xl font-bold text-red-700 dark:text-red-400">{reviewCount}</p>
+            <p className="text-xs text-red-600 dark:text-red-500 mt-0.5">Review Again ✗</p>
           </div>
         </div>
 
-        <p className="text-gray-500 mb-8">
+        <p className="text-gray-500 dark:text-gray-400 mb-8">
           Accuracy:{" "}
-          <span className="font-semibold text-gray-900">{percentage}%</span> across{" "}
+          <span className="font-semibold text-gray-900 dark:text-white">{percentage}%</span> across{" "}
           {items.length} flashcards shown.
         </p>
 
@@ -243,7 +235,7 @@ export default function Study() {
                 collectionId === "review" ? "/review" : `/collections/${collectionId}`
               )
             }
-            className="w-full py-3 bg-white border border-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-50 transition-colors"
+            className="w-full py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
           >
             Back to Collection
           </button>
@@ -264,32 +256,32 @@ export default function Study() {
               collectionId === "review" ? "/review" : `/collections/${collectionId}`
             )
           }
-          className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors"
+          className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Back
         </button>
         <div className="flex items-center gap-3">
           {reviewAgainSet.size > 0 && (
-            <span className="flex items-center gap-1 text-xs bg-red-50 text-red-600 border border-red-100 px-2.5 py-1 rounded-full font-medium">
+            <span className="flex items-center gap-1 text-xs bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-800 px-2.5 py-1 rounded-full font-medium">
               <RotateCcw className="w-3 h-3" />
               {reviewAgainSet.size} to review
             </span>
           )}
-          <div className="text-sm font-medium text-gray-500">
+          <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
             {currentIndex + 1} / {items.length}
           </div>
         </div>
       </header>
 
       {/* Keyboard hint */}
-      <div className="flex items-center gap-1.5 text-xs text-gray-400">
+      <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
         <Keyboard className="w-3.5 h-3.5" />
         <span>Space = flip &nbsp;·&nbsp; ← Review Again &nbsp;·&nbsp; → Got It &nbsp;·&nbsp; S = speak</span>
       </div>
 
       {/* Progress bar */}
-      <div className="w-full bg-gray-200 rounded-full h-1.5">
+      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1.5">
         <div
           className="bg-blue-600 h-1.5 rounded-full transition-all duration-300"
           style={{ width: `${(currentIndex / items.length) * 100}%` }}
@@ -298,7 +290,7 @@ export default function Study() {
 
       {/* Review Again badge */}
       {isReviewAgainCard && (
-        <div className="flex items-center justify-center gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-100 rounded-xl py-2 animate-in slide-in-from-top-2">
+        <div className="flex items-center justify-center gap-2 text-sm text-amber-700 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/30 border border-amber-100 dark:border-amber-800 rounded-xl py-2 animate-in slide-in-from-top-2">
           <RotateCcw className="w-4 h-4" />
           Review card — needs more practice
         </div>
@@ -319,7 +311,7 @@ export default function Study() {
           <div
             className={cn(
               "absolute inset-0 backface-hidden rounded-3xl shadow-sm border flex flex-col items-center justify-center p-8 text-center group-hover:shadow-md transition-shadow",
-              isReviewAgainCard ? "bg-amber-50 border-amber-200" : "bg-white border-gray-100"
+              isReviewAgainCard ? "bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800" : "bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700"
             )}
           >
             <div className="absolute top-6 right-6 flex gap-2">
@@ -364,29 +356,29 @@ export default function Study() {
               <Star className={cn("w-6 h-6", currentItem.isHard && "fill-current")} />
             </button>
 
-            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 mb-3">
+            <h2 className="text-4xl md:text-5xl font-bold text-gray-900 dark:text-white mb-3">
               {currentItem.term}
             </h2>
             <ChineseHint text={currentItem.term} />
-            <p className="text-sm text-gray-400 uppercase tracking-widest mt-4">
+            <p className="text-sm text-gray-400 dark:text-gray-500 uppercase tracking-widest mt-4">
               Space to flip
             </p>
           </div>
 
           {/* Back */}
-          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-white rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center justify-center p-8 text-center">
-            <span className="px-3 py-1 bg-blue-50 text-blue-700 rounded-full text-sm font-medium mb-6">
+          <div className="absolute inset-0 backface-hidden rotate-y-180 bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 flex flex-col items-center justify-center p-8 text-center">
+            <span className="px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 rounded-full text-sm font-medium mb-6">
               {currentItem.type}
             </span>
-            <h2 className="text-3xl md:text-4xl font-medium text-gray-900 mb-4">
+            <h2 className="text-3xl md:text-4xl font-medium text-gray-900 dark:text-white mb-4">
               {currentItem.meaning}
             </h2>
             {currentItem.example && (
-              <p className="text-sm text-gray-500 italic border-t border-gray-100 pt-4 mt-2 max-w-sm">
+              <p className="text-sm text-gray-500 dark:text-gray-400 italic border-t border-gray-100 dark:border-gray-700 pt-4 mt-2 max-w-sm">
                 "{currentItem.example}"
               </p>
             )}
-            <div className="text-sm text-gray-400 mt-4">Lesson: {currentItem.lessonTitle}</div>
+            <div className="text-sm text-gray-400 dark:text-gray-500 mt-4">Lesson: {currentItem.lessonTitle}</div>
           </div>
         </div>
       </div>
@@ -403,8 +395,8 @@ export default function Study() {
           className={cn(
             "flex-1 flex items-center justify-center gap-2 py-4 border-2 rounded-2xl font-semibold transition-colors",
             isReviewAgainCard
-              ? "bg-gray-50 border-gray-200 text-gray-500 hover:bg-gray-100"
-              : "bg-white border-red-100 text-red-600 hover:bg-red-50 hover:border-red-200"
+              ? "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+              : "bg-white dark:bg-gray-800 border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 hover:border-red-200 dark:hover:border-red-800"
           )}
         >
           <XCircle className="w-5 h-5" />

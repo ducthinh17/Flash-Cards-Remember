@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer utilities {
   .perspective-1000 {
     perspective: 1000px;
@@ -12,5 +14,14 @@
   }
   .rotate-y-180 {
     transform: rotateY(180deg);
+  }
+}
+
+@theme {
+  --animate-shake: shake 0.5s ease-in-out;
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20%, 60% { transform: translateX(-5px); }
+    40%, 80% { transform: translateX(5px); }
   }
 }
