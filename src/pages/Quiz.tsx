@@ -6,6 +6,8 @@ import confetti from "canvas-confetti";
 import { VocabItem } from "../types";
 import { cn, shuffleArray, getReviewItems } from "../lib/utils";
 import { speakTerm } from "../lib/speech";
+import { useGamificationStore, XP_REWARDS } from "../store/useGamificationStore";
+import { XpPopup } from "../components/gamification";
 
 function buildOptions(current: VocabItem, allItems: VocabItem[], isReverse: boolean): string[] {
   const correctOption = isReverse ? current.term : current.meaning;
@@ -32,6 +34,7 @@ export default function Quiz() {
   const navigate   = useNavigate();
   const [searchParams] = useSearchParams();
   const { collections, vocabItems, updateVocabProgress, recordStudySession } = useStore();
+  const { addXp, recordCorrectAnswer, recordPerfectRound } = useGamificationStore();
   const filterMode = searchParams.get("filter") ?? "all";
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -42,6 +45,8 @@ export default function Quiz() {
   const [isCorrect,      setIsCorrect]      = useState<boolean | null>(null);
   const [score,          setScore]          = useState(0);
   const [isReverse,      setIsReverse]      = useState(false);
+  const [showXpPopup,    setShowXpPopup]    = useState(false);
+  const [xpTick,         setXpTick]         = useState(0);
 
   // ── Refs ───────────────────────────────────────────────────────────────────
   const vocabSnapshotRef = useRef<VocabItem[]>([]);
@@ -55,15 +60,13 @@ export default function Quiz() {
     if (isFinished && !sessionRecorded.current) {
       sessionRecorded.current = true;
       recordStudySession();
+      // Perfect round bonus
       if (score === items.length && items.length > 0) {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
+        recordPerfectRound();
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
       }
     }
-  }, [isFinished, recordStudySession, score, items.length]);
+  }, [isFinished, recordStudySession, score, items.length, recordPerfectRound]);
 
   // ── Load / filter items ───────────────────────────────────────────────────
   const initGame = useCallback(() => {
@@ -162,13 +165,26 @@ export default function Quiz() {
     const correctOption = isReverse ? currentItem.term : currentItem.meaning;
     const correct = answer === correctOption;
     setIsCorrect(correct);
-    if (correct) setScore(s => s + 1);
+    if (correct) {
+      setScore(s => s + 1);
+      addXp(XP_REWARDS.QUIZ_CORRECT);
+      recordCorrectAnswer(true);
+      setXpTick(k => k + 1);
+      setShowXpPopup(true);
+    } else {
+      recordCorrectAnswer(false);
+    }
     updateVocabProgress(currentItem.id, correct);
     setTimeout(() => setCurrentIndex(prev => prev + 1), 1500);
   };
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in duration-300">
+      {showXpPopup && (
+        <span key={xpTick}>
+          <XpPopup xp={XP_REWARDS.QUIZ_CORRECT} show={showXpPopup} onDone={() => setShowXpPopup(false)} />
+        </span>
+      )}
       <header className="flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}

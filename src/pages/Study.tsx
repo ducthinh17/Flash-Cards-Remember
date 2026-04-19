@@ -6,6 +6,8 @@ import { ArrowLeft, Volume2, CheckCircle, XCircle, Star, Repeat, RotateCcw, Keyb
 import confetti from "canvas-confetti";
 import { cn, getReviewItems } from "../lib/utils";
 import { VocabItem } from "../types";
+import { useGamificationStore, XP_REWARDS } from "../store/useGamificationStore";
+import { XpPopup } from "../components/gamification";
 
 
 function ChineseHint({ text }: { text: string }) {
@@ -22,11 +24,14 @@ export default function Study() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { collections, vocabItems, updateVocabProgress, toggleHardWord, recordStudySession } = useStore();
+  const { addXp, recordCorrectAnswer, recordPerfectRound } = useGamificationStore();
 
   const filterMode = searchParams.get("filter") ?? "all"; // "all" | "hard" | "due"
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
+  const [showXpPopup, setShowXpPopup] = useState(false);
+  const [xpTick, setXpTick] = useState(0);
 
   const [items, setItems] = useState<VocabItem[]>(() => {
     if (collectionId === "review") {
@@ -59,14 +64,20 @@ export default function Study() {
   const handleKnown = useCallback(() => {
     if (!items[currentIndex] || currentIndex >= items.length) return;
     updateVocabProgress(items[currentIndex].id, true);
+    recordCorrectAnswer(true);
+    addXp(XP_REWARDS.STUDY_CARD);
+    // Trigger floating XP popup
+    setXpTick(k => k + 1);
+    setShowXpPopup(true);
     setIsFlipped(false);
     setCurrentIndex(prev => prev + 1);
-  }, [currentIndex, items, updateVocabProgress]);
+  }, [currentIndex, items, updateVocabProgress, addXp, recordCorrectAnswer]);
 
   const handleReviewAgain = useCallback(() => {
     const currentItem = items[currentIndex];
     if (!currentItem || currentIndex >= items.length) return;
     updateVocabProgress(currentItem.id, false);
+    recordCorrectAnswer(false);
     setIsFlipped(false);
 
     if (!reviewAgainSet.has(currentItem.id)) {
@@ -125,11 +136,11 @@ export default function Study() {
       
       const percentage = items.length > 0 ? Math.round(((items.length - missedWordIds.length) / items.length) * 100) : 0;
       if (percentage >= 80 && items.length > 0) {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      }
+      // Perfect round bonus
+      if (missedWordIds.length === 0 && items.length > 0) {
+        recordPerfectRound();
       }
     }
   }, [isFinished]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -249,6 +260,12 @@ export default function Study() {
   // ── Main Study UI ─────────────────────────────────────────────────────────
   return (
     <div className="max-w-2xl mx-auto space-y-6 animate-in fade-in duration-300">
+      {/* XP popup — re-mounts on each correct answer via xpTick */}
+      {showXpPopup && (
+        <span key={xpTick}>
+          <XpPopup xp={XP_REWARDS.STUDY_CARD} show={showXpPopup} onDone={() => setShowXpPopup(false)} />
+        </span>
+      )}
       <header className="flex items-center justify-between">
         <button
           onClick={() =>

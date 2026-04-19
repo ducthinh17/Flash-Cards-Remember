@@ -25,3 +25,5 @@ dist-ssr
 
 # Agent files
 .agents
+.claude
+.goose

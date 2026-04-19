@@ -3,6 +3,7 @@ import { useMemo, useEffect } from "react";
 import { BookOpen, Home, PlusCircle, BrainCircuit, Gamepad2, BarChart2, Sun, Moon } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useStore } from "../../store/useStore";
+import { GamificationOverlay, XPBar, StreakBadge } from "../gamification/index.tsx";
 
 export default function AppLayout() {
   const location = useLocation();
@@ -34,11 +35,16 @@ export default function AppLayout() {
     <div className="min-h-screen bg-[#f5f5f5] dark:bg-[#111827] text-gray-900 dark:text-gray-100 flex flex-col md:flex-row font-sans transition-colors duration-300">
       {/* Sidebar (Desktop) */}
       <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed h-full z-10 transition-colors duration-300">
-        <div className="p-6">
-          <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2 text-gray-900 dark:text-white">
+        <div className="p-5">
+          <h1 className="text-lg font-semibold tracking-tight flex items-center gap-2 text-gray-900 dark:text-white mb-4">
             <img src="/logo.png" alt="Flash Card Remember Logo" className="w-8 h-8 rounded-lg shadow-sm" />
             Flash Card Remember
           </h1>
+          {/* Gamification Panel */}
+          <div className="space-y-2">
+            <XPBar compact className="w-full" showMultiplier={false} />
+            <StreakBadge className="w-full justify-center" showLabel />
+          </div>
         </div>
         <nav className="flex-1 px-4 space-y-1">
           {navItems.map((item) => {
@@ -124,6 +130,9 @@ export default function AppLayout() {
           );
         })}
       </nav>
+
+      {/* Global gamification overlays (level-up modal + achievement toasts) */}
+      <GamificationOverlay />
     </div>
   );
 }

@@ -6,12 +6,15 @@ import confetti from "canvas-confetti";
 import { VocabItem } from "../types";
 import { cn, getReviewItems, shuffleArray } from "../lib/utils";
 import { speakTerm } from "../lib/speech";
+import { useGamificationStore, XP_REWARDS } from "../store/useGamificationStore";
+import { XpPopup } from "../components/gamification";
 
 export default function ActiveRecall() {
   const { collectionId, lessonTitle } = useParams<{ collectionId: string; lessonTitle?: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { collections, vocabItems, updateVocabProgress, recordStudySession } = useStore();
+  const { addXp, recordCorrectAnswer, recordPerfectRound } = useGamificationStore();
   const filterMode = searchParams.get("filter") ?? "all";
 
   const [items, setItems] = useState<VocabItem[]>([]);
@@ -24,6 +27,8 @@ export default function ActiveRecall() {
 
   const sessionRecorded = useRef(false);
   const [sessionDone, setSessionDone] = useState(false); // eslint-disable-line @typescript-eslint/no-unused-vars
+  const [showXpPopup, setShowXpPopup] = useState(false);
+  const [xpTick, setXpTick] = useState(0);
 
   /** reviewAgainSet: IDs queued for re-review — max once per word */
   const [reviewAgainSet, setReviewAgainSet] = useState<Set<string>>(new Set());
@@ -81,11 +86,11 @@ export default function ActiveRecall() {
       
       const percentage = items.length > 0 ? Math.round(((items.length - missedWordIds.length) / items.length) * 100) : 0;
       if (percentage >= 80 && items.length > 0) {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 }
-        });
+        confetti({ particleCount: 100, spread: 70, origin: { y: 0.6 } });
+      }
+      // Perfect round bonus (no hints used, all correct)
+      if (missedWordIds.length === 0 && items.length > 0) {
+        recordPerfectRound();
       }
     }
   }, [isFinished, recordStudySession]);
@@ -126,6 +131,13 @@ export default function ActiveRecall() {
     if (wasCorrectOriginally) {
        setScore(s => s + 1);
        if (currentItem) updateVocabProgress(currentItem.id, true);
+       // Award XP only for no-hint correct answers
+       addXp(XP_REWARDS.ACTIVE_RECALL);
+       recordCorrectAnswer(true);
+       setXpTick(k => k + 1);
+       setShowXpPopup(true);
+    } else {
+      recordCorrectAnswer(false);
     }
 
     if (currentItem && !wasCorrectOriginally && !reviewAgainSet.has(currentItem.id)) {
@@ -309,6 +321,11 @@ export default function ActiveRecall() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 animate-in fade-in duration-300 pb-16">
+      {showXpPopup && (
+        <span key={xpTick}>
+          <XpPopup xp={XP_REWARDS.ACTIVE_RECALL} show={showXpPopup} onDone={() => setShowXpPopup(false)} />
+        </span>
+      )}
       <header className="flex items-center justify-between">
         <button
           onClick={() => navigate(isReviewMode ? "/review" : `/collections/${collectionId}`)}

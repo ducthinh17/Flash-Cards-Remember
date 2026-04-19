@@ -1,0 +1,331 @@
+/* ─────────────────────────────────────────────────────────────────────────────
+   Gamification Components — XP Bar, Streak Badge, Level Up Modal,
+   Achievement Toast, and the global GamificationOverlay
+───────────────────────────────────────────────────────────────────────────── */
+
+/* XP Bar */
+.xpBarRoot {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  background: var(--xp-bar-bg, rgba(255,255,255,0.08));
+  border-radius: 50px;
+  border: 1px solid var(--xp-bar-border, rgba(255,255,255,0.12));
+  backdrop-filter: blur(8px);
+  min-width: 200px;
+  cursor: default;
+  user-select: none;
+}
+
+.levelBadge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+  transition: transform 0.2s ease;
+}
+.levelBadge:hover { transform: scale(1.1); }
+
+/* Tier colors */
+.tier-bronze { background: linear-gradient(135deg, #cd7f32, #a0522d); color: #fff; }
+.tier-silver { background: linear-gradient(135deg, #c0c0c0, #8a8a8a); color: #fff; }
+.tier-gold   { background: linear-gradient(135deg, #ffd700, #ffa500); color: #333; }
+.tier-diamond{ background: linear-gradient(135deg, #89CFF0, #4fc3f7); color: #fff; }
+.tier-master { background: linear-gradient(135deg, #a855f7, #7c3aed); color: #fff; }
+.tier-legend { background: linear-gradient(135deg, #f59e0b, #ef4444, #a855f7); color: #fff; }
+
+.xpTrack {
+  flex: 1;
+  height: 6px;
+  background: rgba(0,0,0,0.15);
+  border-radius: 10px;
+  overflow: hidden;
+  position: relative;
+}
+
+.xpFill {
+  height: 100%;
+  border-radius: 10px;
+  background: linear-gradient(90deg, #6366f1, #8b5cf6, #a78bfa);
+  box-shadow: 0 0 8px rgba(139,92,246,0.6);
+  transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+}
+.xpFill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.35) 50%, transparent 100%);
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(200%); }
+}
+
+.xpText {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--xp-text, rgba(255,255,255,0.6));
+  white-space: nowrap;
+  min-width: 60px;
+  text-align: right;
+}
+
+.multiplierBadge {
+  background: linear-gradient(135deg, #f59e0b, #f97316);
+  color: white;
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 20px;
+  animation: pulse-badge 1.5s ease-in-out infinite;
+  flex-shrink: 0;
+}
+@keyframes pulse-badge {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0.4); }
+  50%       { box-shadow: 0 0 0 4px rgba(245,158,11,0); }
+}
+
+/* ── Streak Badge ──────────────────────────────────────────────────────────── */
+.streakBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: 50px;
+  border: 1px solid rgba(255,255,255,0.12);
+  cursor: default;
+  user-select: none;
+  font-weight: 700;
+  transition: all 0.3s ease;
+}
+.streakBadge.streakActive {
+  background: linear-gradient(135deg, rgba(251,146,60,0.2), rgba(239,68,68,0.2));
+  border-color: rgba(251,146,60,0.4);
+}
+.streakBadge.streakInactive {
+  background: rgba(0,0,0,0.08);
+  border-color: rgba(0,0,0,0.08);
+  opacity: 0.6;
+}
+.streakEmoji {
+  font-size: 16px;
+  line-height: 1;
+}
+.streakEmoji.animateFire {
+  animation: fire-pulse 1.5s ease-in-out infinite;
+}
+@keyframes fire-pulse {
+  0%, 100% { transform: scale(1) rotate(-3deg); filter: drop-shadow(0 0 4px #f97316); }
+  50%       { transform: scale(1.2) rotate(3deg); filter: drop-shadow(0 0 12px #ef4444); }
+}
+.streakCount {
+  font-size: 14px;
+  color: #f97316;
+}
+.streakLabel {
+  font-size: 11px;
+  color: rgba(249,115,22,0.7);
+}
+
+/* ── Level Up Modal ────────────────────────────────────────────────────────── */
+.levelUpOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.3s ease;
+}
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.levelUpCard {
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%);
+  border: 1px solid rgba(139,92,246,0.4);
+  border-radius: 24px;
+  padding: 48px 40px;
+  text-align: center;
+  max-width: 380px;
+  width: 90%;
+  box-shadow: 0 25px 50px rgba(0,0,0,0.5), 0 0 60px rgba(139,92,246,0.2);
+  animation: levelUpPop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+  overflow: hidden;
+}
+.levelUpCard::before {
+  content: '';
+  position: absolute;
+  inset: -50%;
+  background: conic-gradient(from 0deg, transparent, rgba(139,92,246,0.15), transparent, rgba(139,92,246,0.15), transparent);
+  animation: rotate 4s linear infinite;
+}
+@keyframes rotate { to { transform: rotate(360deg); } }
+@keyframes levelUpPop {
+  0%   { transform: scale(0.5) rotate(-5deg); opacity: 0; }
+  60%  { transform: scale(1.05) rotate(1deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.levelUpStars {
+  font-size: 36px;
+  margin-bottom: 12px;
+  animation: starSpin 1s ease;
+}
+@keyframes starSpin {
+  0%   { transform: scale(0) rotate(-180deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.levelUpTitle {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: rgba(196,181,253,0.8);
+  margin-bottom: 4px;
+  position: relative;
+}
+
+.levelUpNumber {
+  font-size: 72px;
+  font-weight: 900;
+  line-height: 1;
+  background: linear-gradient(135deg, #c4b5fd, #a78bfa, #818cf8);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  margin: 8px 0;
+  position: relative;
+  animation: countUp 0.6s ease 0.2s both;
+}
+@keyframes countUp {
+  0%   { transform: translateY(20px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.levelUpSubtitle {
+  color: rgba(196,181,253,0.7);
+  font-size: 15px;
+  margin-bottom: 28px;
+  position: relative;
+}
+
+.levelUpBtn {
+  background: linear-gradient(135deg, #7c3aed, #6d28d9);
+  color: white;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 50px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 0 4px 15px rgba(124,58,237,0.4);
+}
+.levelUpBtn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(124,58,237,0.6);
+}
+.levelUpBtn:active { transform: translateY(0); }
+
+/* ── Achievement Toast ─────────────────────────────────────────────────────── */
+.achievementToastWrapper {
+  position: fixed;
+  bottom: 80px;
+  right: 20px;
+  z-index: 9998;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+@media (min-width: 768px) {
+  .achievementToastWrapper { bottom: 24px; }
+}
+
+.achievementToast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(135deg, rgba(30,27,75,0.95), rgba(49,46,129,0.95));
+  border: 1px solid rgba(139,92,246,0.4);
+  border-radius: 16px;
+  padding: 14px 18px;
+  min-width: 280px;
+  max-width: 340px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.4), 0 0 20px rgba(139,92,246,0.2);
+  animation: toastSlideIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  backdrop-filter: blur(12px);
+  pointer-events: all;
+  cursor: pointer;
+}
+
+@keyframes toastSlideIn {
+  0%   { transform: translateX(120%) scale(0.8); opacity: 0; }
+  100% { transform: translateX(0) scale(1); opacity: 1; }
+}
+@keyframes toastSlideOut {
+  0%   { transform: translateX(0) scale(1); opacity: 1; }
+  100% { transform: translateX(120%) scale(0.8); opacity: 0; }
+}
+.toastSlideOut {
+  animation: toastSlideOut 0.3s ease forwards;
+}
+
+.toastIcon {
+  font-size: 28px;
+  flex-shrink: 0;
+  animation: iconBounce 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+}
+@keyframes iconBounce {
+  0%   { transform: scale(0) rotate(-20deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+.toastContent {
+  flex: 1;
+  min-width: 0;
+}
+.toastLabel {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: rgba(196,181,253,0.6);
+  margin-bottom: 2px;
+}
+.toastTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: #e0e7ff;
+  line-height: 1.2;
+}
+.toastDesc {
+  font-size: 12px;
+  color: rgba(196,181,253,0.7);
+  margin-top: 1px;
+}
+.toastXp {
+  font-size: 12px;
+  font-weight: 700;
+  color: #a78bfa;
+  background: rgba(167,139,250,0.15);
+  padding: 3px 8px;
+  border-radius: 20px;
+  flex-shrink: 0;
+}

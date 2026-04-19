@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useStore } from "../store/useStore";
-import { Gamepad2, Zap, LayoutGrid, Link as LinkIcon, Settings2 } from "lucide-react";
-import { Link } from "react-router-dom";
+import { useGamificationStore } from "../store/useGamificationStore";
+import { Gamepad2, Zap, LayoutGrid, Shield, Settings2, Trophy } from "lucide-react";
 import { cn } from "../lib/utils";
 
 // ── Options ───────────────────────────────────────────────────────────────────
@@ -11,6 +11,7 @@ const MATCH_PAIRS   = [8, 12, 16, 20,30,40,50,60,70,80,100]   as const;
 
 export default function Games() {
   const { collections, vocabItems } = useStore();
+  const { vocabDefenderHighScore } = useGamificationStore();
   const navigate = useNavigate();
 
   const [selectedCollection, setSelectedCollection] = useState("");
@@ -134,6 +135,47 @@ export default function Games() {
           </div>
 
           {/* ── Game cards ─────────────────────────────────────────────────── */}
+          {/* Vocab Defender — Featured card (full width) */}
+          <div className="bg-gradient-to-br from-indigo-950 via-violet-950 to-indigo-950 dark:from-indigo-950 dark:via-violet-950 dark:to-indigo-950 rounded-3xl border border-indigo-500/30 overflow-hidden flex flex-col md:flex-row hover:shadow-2xl hover:shadow-indigo-500/20 transition-all group relative">
+            {/* Glow */}
+            <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/5 to-violet-600/5 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" />
+            <div className="p-8 flex-1 flex flex-col gap-4">
+              <div className="flex items-start gap-4">
+                <div className="w-16 h-16 bg-indigo-500/20 border border-indigo-500/30 text-indigo-300 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0 group-hover:scale-110 transition-transform">
+                  🛡️
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h2 className="text-2xl font-bold text-white">Vocab Defender</h2>
+                    <span className="px-2 py-0.5 bg-indigo-500/20 border border-indigo-500/40 text-indigo-300 text-xs font-bold rounded-full">NEW</span>
+                  </div>
+                  <p className="text-indigo-200/60 text-sm">
+                    Type English words to destroy descending monsters. Power-ups, combos, waves — learn under pressure!
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 rounded-full text-xs font-semibold">
+                  <Zap className="w-3 h-3" /> Active Recall
+                </div>
+                <div className="flex items-center gap-1.5 px-3 py-1 bg-violet-500/15 border border-violet-500/25 text-violet-300 rounded-full text-xs font-semibold">
+                  <Trophy className="w-3 h-3" /> High Score: {vocabDefenderHighScore > 0 ? vocabDefenderHighScore.toLocaleString() : '—'}
+                </div>
+              </div>
+            </div>
+            <div className="p-6 flex items-center justify-center border-t md:border-t-0 md:border-l border-indigo-500/20">
+              <button
+                id="play-vocab-defender"
+                onClick={() => navigate('/games/vocab-defender')}
+                disabled={!hasVocab}
+                className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white px-8 py-4 rounded-2xl font-bold text-base transition-all shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 disabled:opacity-40 disabled:cursor-not-allowed hover:scale-105 active:scale-95"
+              >
+                <Shield className="w-5 h-5" />
+                Play Now
+              </button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* Matching Game */}
             <div className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col hover:shadow-md transition-all">

@@ -19,6 +19,7 @@ const Games = lazy(() => import("./pages/Games"));
 const MatchingGame = lazy(() => import("./pages/MatchingGame"));
 const SpeedQuiz = lazy(() => import("./pages/SpeedQuiz"));
 const Stats = lazy(() => import("./pages/Stats"));
+const VocabDefender = lazy(() => import("./pages/VocabDefender"));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-[50vh]">
@@ -43,6 +44,7 @@ export default function App() {
             <Route path="games" element={<Games />} />
             <Route path="games/matching/:collectionId?" element={<MatchingGame />} />
             <Route path="games/speed/:collectionId?" element={<SpeedQuiz />} />
+            <Route path="games/vocab-defender" element={<VocabDefender />} />
             <Route path="stats" element={<Stats />} />
           </Route>
         </Routes>
