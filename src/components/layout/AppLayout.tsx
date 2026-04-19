@@ -36,7 +36,7 @@ export default function AppLayout() {
       <aside className="hidden md:flex flex-col w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 fixed h-full z-10 transition-colors duration-300">
         <div className="p-6">
           <h1 className="text-xl font-semibold tracking-tight flex items-center gap-2 text-gray-900 dark:text-white">
-            <BookOpen className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+            <img src="/logo.png" alt="Flash Card Remember Logo" className="w-8 h-8 rounded-lg shadow-sm" />
             Flash Card Remember
           </h1>
         </div>
