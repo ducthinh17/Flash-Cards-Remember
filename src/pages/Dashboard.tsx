@@ -1,11 +1,13 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { useStore } from "../store/useStore";
-import { BookOpen, Layers, PlusCircle, BrainCircuit, Clock, Flame, Target, BarChart2, Home, ListTodo, History, Zap } from "lucide-react";
+import { BookOpen, Layers, PlusCircle, BrainCircuit, Clock, Flame, Target, BarChart2, Home, ListTodo, History, Zap, Award } from "lucide-react";
+import { useGamificationStore, totalXpForLevel } from "../store/useGamificationStore";
 import { cn } from "../lib/utils";
 
 export default function Dashboard() {
   const { collections, vocabItems, streak, longestStreak, lastStudiedDate } = useStore();
+  const { level, totalXp } = useGamificationStore();
 
   const totalCollections = collections.length;
   const totalWords = vocabItems.length;
@@ -43,6 +45,23 @@ export default function Dashboard() {
     return total === 0 ? 0 : Math.round((correct / total) * 100);
   }, [vocabItems]);
 
+  const tier = useMemo(() => {
+    if (level >= 50) return { name: "Legend",  text: "text-amber-500", fill: "bg-amber-500", bg: "bg-amber-50 dark:bg-amber-500/10", border: "border-amber-200 dark:border-amber-500/20" };
+    if (level >= 25) return { name: "Master",  text: "text-purple-500", fill: "bg-purple-500", bg: "bg-purple-50 dark:bg-purple-500/10", border: "border-purple-200 dark:border-purple-500/20" };
+    if (level >= 10) return { name: "Diamond", text: "text-cyan-500", fill: "bg-cyan-500", bg: "bg-cyan-50 dark:bg-cyan-500/10", border: "border-cyan-200 dark:border-cyan-500/20" };
+    if (level >= 5)  return { name: "Gold",    text: "text-yellow-500", fill: "bg-yellow-500", bg: "bg-yellow-50 dark:bg-yellow-500/10", border: "border-yellow-200 dark:border-yellow-500/20" };
+    if (level >= 2)  return { name: "Silver",  text: "text-slate-400", fill: "bg-slate-400", bg: "bg-slate-50 dark:bg-slate-500/10", border: "border-slate-200 dark:border-slate-500/20" };
+    return { name: "Bronze", text: "text-orange-400", fill: "bg-orange-400", bg: "bg-orange-50 dark:bg-orange-500/10", border: "border-orange-200 dark:border-orange-500/20" };
+  }, [level]);
+
+  const { percent } = useMemo(() => {
+    const levelStart = totalXpForLevel(level);
+    const levelEnd = totalXpForLevel(level + 1);
+    const cur = totalXp - levelStart;
+    const need = levelEnd - levelStart;
+    return { percent: Math.min(100, Math.round((cur / need) * 100)) };
+  }, [totalXp, level]);
+
   const recentCollections = [...collections]
     .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
     .slice(0, 3);
@@ -58,20 +77,39 @@ export default function Dashboard() {
           <p className="text-gray-500 dark:text-gray-400 mt-1">Welcome back. Here's your learning overview.</p>
         </div>
 
-        {/* Streak Badge */}
-        <div className={cn(
-          "flex items-center gap-3 px-5 py-3 rounded-2xl border",
-          studiedToday
-            ? "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700/50"
-            : "bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700"
-        )}>
-          <Flame className={cn("w-6 h-6", studiedToday ? "text-amber-500" : "text-gray-300 dark:text-gray-600")} />
-          <div>
-            <p className="text-xl font-bold text-gray-900 dark:text-white">{streak} day{streak !== 1 ? "s" : ""}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
-              {studiedToday ? "Studied today ✓" : "Study today to keep your streak!"}
-              {longestStreak > 0 && ` · Best: ${longestStreak}`}
-            </p>
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Level Badge */}
+          <Link to="/stats" className={cn(
+            "flex items-center gap-3 px-5 py-3 rounded-2xl border transition-all cursor-pointer hover:shadow-md relative overflow-hidden group",
+            tier.bg, tier.border
+          )}>
+            <div className="absolute top-0 left-0 h-1 bg-black/5 dark:bg-white/5 w-full">
+              <div className={cn("h-full transition-all duration-1000", tier.fill)} style={{ width: `${percent}%` }} />
+            </div>
+            <Award className={cn("w-6 h-6 transition-transform group-hover:scale-110", tier.text)} />
+            <div>
+              <p className="text-xl font-bold text-gray-900 dark:text-white leading-none mb-1">Lv.{level}</p>
+              <p className={cn("text-xs font-bold uppercase tracking-wider", tier.text)}>
+                {tier.name}
+              </p>
+            </div>
+          </Link>
+
+          {/* Streak Badge */}
+          <div className={cn(
+            "flex items-center gap-3 px-5 py-3 rounded-2xl border",
+            studiedToday
+              ? "bg-amber-50 border-amber-200 dark:bg-amber-900/20 dark:border-amber-700/50"
+              : "bg-white border-gray-200 dark:bg-gray-800 dark:border-gray-700"
+          )}>
+            <Flame className={cn("w-6 h-6", studiedToday ? "text-amber-500" : "text-gray-300 dark:text-gray-600")} />
+            <div>
+              <p className="text-xl font-bold text-gray-900 dark:text-white leading-none mb-1">{streak} day{streak !== 1 ? "s" : ""}</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {studiedToday ? "Studied today ✓" : "Study today!"}
+                {longestStreak > 0 && ` · Best: ${longestStreak}`}
+              </p>
+            </div>
           </div>
         </div>
       </header>

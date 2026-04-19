@@ -11,7 +11,10 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  Award,
+  Zap,
 } from "lucide-react";
+import { useGamificationStore, totalXpForLevel } from "../store/useGamificationStore";
 import { cn } from "../lib/utils";
 
 function StatCard({
@@ -141,6 +144,7 @@ function StudyLineChart({ history }: { history: string[] }) {
 
 export default function Stats() {
   const { vocabItems, collections, streak, longestStreak, studyHistory } = useStore();
+  const { level, totalXp } = useGamificationStore();
 
   const totalWords = vocabItems.length;
   const totalReviewed = vocabItems.filter(v => v.correctCount + v.wrongCount > 0).length;
@@ -158,6 +162,24 @@ export default function Stats() {
     const correct = vocabItems.reduce((s, v) => s + v.correctCount, 0);
     return total === 0 ? 0 : Math.round((correct / total) * 100);
   }, [vocabItems]);
+
+  const tier = useMemo(() => {
+    if (level >= 50) return { name: "Legend",  text: "text-amber-500", fill: "bg-amber-500", bg: "bg-amber-50 dark:bg-amber-500/10", border: "border-amber-200 dark:border-amber-500/20" };
+    if (level >= 25) return { name: "Master",  text: "text-purple-500", fill: "bg-purple-500", bg: "bg-purple-50 dark:bg-purple-500/10", border: "border-purple-200 dark:border-purple-500/20" };
+    if (level >= 10) return { name: "Diamond", text: "text-cyan-500", fill: "bg-cyan-500", bg: "bg-cyan-50 dark:bg-cyan-500/10", border: "border-cyan-200 dark:border-cyan-500/20" };
+    if (level >= 5)  return { name: "Gold",    text: "text-yellow-500", fill: "bg-yellow-500", bg: "bg-yellow-50 dark:bg-yellow-500/10", border: "border-yellow-200 dark:border-yellow-500/20" };
+    if (level >= 2)  return { name: "Silver",  text: "text-slate-400", fill: "bg-slate-400", bg: "bg-slate-50 dark:bg-slate-500/10", border: "border-slate-200 dark:border-slate-500/20" };
+    return { name: "Bronze", text: "text-orange-400", fill: "bg-orange-400", bg: "bg-orange-50 dark:bg-orange-500/10", border: "border-orange-200 dark:border-orange-500/20" };
+  }, [level]);
+
+  const { currentLevelXp, neededXp, percent } = useMemo(() => {
+    const levelStart = totalXpForLevel(level);
+    const levelEnd = totalXpForLevel(level + 1);
+    const cur = totalXp - levelStart;
+    const need = levelEnd - levelStart;
+    const pct = Math.min(100, Math.round((cur / need) * 100));
+    return { currentLevelXp: cur, neededXp: need, percent: pct };
+  }, [totalXp, level]);
 
   // Top 10 hardest words
   const hardestWords = useMemo(
@@ -201,6 +223,46 @@ export default function Stats() {
           Track your learning journey and identify areas for improvement.
         </p>
       </header>
+
+      {/* Player Level Banner */}
+      <div className={cn("relative overflow-hidden rounded-2xl border p-6 sm:p-8 flex flex-col sm:flex-row items-center gap-6 sm:gap-8 transition-colors", tier.bg, tier.border)}>
+        {/* Decorative background glow */}
+        <div className="absolute -right-20 -top-20 w-64 h-64 bg-white/40 dark:bg-white/5 rounded-full blur-3xl pointer-events-none" />
+        
+        <div className="flex-shrink-0 relative">
+          <div className="w-28 h-28 rounded-full bg-white dark:bg-gray-800 shadow-md flex items-center justify-center border-4 border-white/50 dark:border-gray-700/50 relative z-10">
+            <span className={cn("text-5xl font-bold tracking-tighter", tier.text)}>{level}</span>
+          </div>
+          <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-xs font-bold uppercase tracking-wider rounded-full shadow-lg z-20 whitespace-nowrap flex items-center gap-1.5">
+            <Award className="w-3.5 h-3.5" />
+            {tier.name}
+          </div>
+        </div>
+
+        <div className="flex-1 w-full relative z-10 text-center sm:text-left pt-2 sm:pt-0">
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white flex items-center justify-center sm:justify-start gap-2 mb-1">
+            Level {level}
+          </h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-5 flex items-center justify-center sm:justify-start gap-1 text-sm font-medium">
+             <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+             {totalXp.toLocaleString()} Total XP
+          </p>
+
+          <div className="w-full bg-black/5 dark:bg-black/20 rounded-full h-3 backdrop-blur-sm relative overflow-hidden shadow-inner">
+            <div
+              className={cn("h-full rounded-full transition-all duration-1000 relative", tier.fill)}
+              style={{ width: `${percent}%` }}
+            >
+              {/* Highlight shimmer */}
+              <div className="absolute top-0 left-0 right-0 bottom-0 bg-gradient-to-b from-white/30 to-transparent rounded-full" />
+            </div>
+          </div>
+          <div className="flex justify-between items-center mt-2 text-sm font-semibold">
+            <span className={tier.text}>{currentLevelXp.toLocaleString()} XP</span>
+            <span className="text-gray-500 dark:text-gray-400">{neededXp.toLocaleString()} XP to Lvl {level + 1}</span>
+          </div>
+        </div>
+      </div>
 
       {/* Key Metrics */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
