@@ -168,11 +168,11 @@ export default function Dashboard() {
               </p>
             </div>
             <Link
-              to="/review"
+              to="/daily-focus"
               className="flex items-center gap-2 bg-blue-600 dark:bg-blue-500 text-white px-5 py-2.5 rounded-xl font-medium hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors text-sm"
             >
               <BrainCircuit className="w-4 h-4" />
-              Start Review
+              Start Focus
             </Link>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -253,11 +253,11 @@ export default function Dashboard() {
               <span className="font-medium">Add New Vocabulary</span>
             </Link>
             <Link
-              to="/review"
+              to="/daily-focus"
               className="flex items-center gap-3 bg-white dark:bg-gray-800 text-gray-900 dark:text-white p-4 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 transition-colors"
             >
               <BrainCircuit className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
-              <span className="font-medium">Review Weak Words</span>
+              <span className="font-medium">Daily Focus Session</span>
               {dueWords.length > 0 && (
                 <span className="ml-auto bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 text-xs font-semibold px-2 py-0.5 rounded-full">
                   {dueWords.length} due

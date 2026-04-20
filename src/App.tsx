@@ -20,6 +20,7 @@ const MatchingGame = lazy(() => import("./pages/MatchingGame"));
 const SpeedQuiz = lazy(() => import("./pages/SpeedQuiz"));
 const Stats = lazy(() => import("./pages/Stats"));
 const VocabDefender = lazy(() => import("./pages/VocabDefender"));
+const DailyFocus = lazy(() => import("./pages/DailyFocus"));
 
 const LoadingFallback = () => (
   <div className="flex items-center justify-center min-h-[50vh]">
@@ -32,6 +33,10 @@ export default function App() {
     <BrowserRouter>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
+          {/* Standalone pages without sidebar */}
+          <Route path="/daily-focus" element={<DailyFocus />} />
+          
+          {/* Main App Layout */}
           <Route path="/" element={<AppLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="collections" element={<Collections />} />

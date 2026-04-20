@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { idbStorage } from './idbStorage';
 import { Collection, VocabItem } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { isToday, isYesterday } from '../lib/utils';
@@ -26,6 +27,7 @@ interface AppState {
   updateVocabItem: (id: string, updates: Partial<VocabItem>) => void;
 
   updateVocabProgress: (id: string, isCorrect: boolean) => void;
+  updateVocabProgressWithRating: (id: string, rating: 'again' | 'hard' | 'good' | 'easy') => void;
   toggleHardWord: (id: string) => void;
 
   /** Call after any study session completes at least 1 word */
@@ -152,6 +154,44 @@ export const useStore = create<AppState>()(
         }));
       },
 
+      updateVocabProgressWithRating: (id: string, rating: 'again' | 'hard' | 'good' | 'easy') => {
+        set((state) => ({
+          vocabItems: state.vocabItems.map(v => {
+            if (v.id === id) {
+              let { easeFactor = 2.5, interval = 0 } = v;
+              const isCorrect = rating !== 'again';
+
+              if (rating === 'again') {
+                interval = 1;
+                easeFactor = Math.max(1.3, easeFactor - 0.2);
+              } else if (rating === 'hard') {
+                interval = interval === 0 ? 1 : interval === 1 ? 2 : Math.round(interval * 1.2);
+                easeFactor = Math.max(1.3, easeFactor - 0.15);
+              } else if (rating === 'good') {
+                interval = interval === 0 ? 1 : interval === 1 ? 6 : Math.round(interval * easeFactor);
+              } else if (rating === 'easy') {
+                interval = interval === 0 ? 4 : interval === 1 ? 10 : Math.round(interval * easeFactor * 1.3);
+                easeFactor = easeFactor + 0.15;
+              }
+
+              const nextReviewAt = new Date();
+              nextReviewAt.setDate(nextReviewAt.getDate() + interval);
+
+              return {
+                ...v,
+                correctCount: isCorrect ? v.correctCount + 1 : v.correctCount,
+                wrongCount: !isCorrect ? v.wrongCount + 1 : v.wrongCount,
+                lastReviewedAt: new Date().toISOString(),
+                nextReviewAt: nextReviewAt.toISOString(),
+                easeFactor,
+                interval,
+              };
+            }
+            return v;
+          }),
+        }));
+      },
+
       toggleHardWord: (id: string) => {
         set((state) => ({
           vocabItems: state.vocabItems.map(v =>
@@ -208,6 +248,7 @@ export const useStore = create<AppState>()(
     }),
     {
       name: 'flashcard-storage',
+      storage: createJSONStorage(() => idbStorage),
     }
   )
 );

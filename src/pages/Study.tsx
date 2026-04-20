@@ -23,7 +23,7 @@ export default function Study() {
   const { collectionId, lessonTitle } = useParams<{ collectionId: string; lessonTitle?: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { collections, vocabItems, updateVocabProgress, toggleHardWord, recordStudySession } = useStore();
+  const { collections, vocabItems, updateVocabProgressWithRating, toggleHardWord, recordStudySession } = useStore();
   const { addXp, recordCorrectAnswer, recordPerfectRound } = useGamificationStore();
 
   const filterMode = searchParams.get("filter") ?? "all"; // "all" | "hard" | "due"
@@ -61,40 +61,39 @@ export default function Study() {
   }, []);
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
-  const handleKnown = useCallback(() => {
-    if (!items[currentIndex] || currentIndex >= items.length) return;
-    updateVocabProgress(items[currentIndex].id, true);
-    recordCorrectAnswer(true);
-    addXp(XP_REWARDS.STUDY_CARD);
-    // Trigger floating XP popup
-    setXpTick(k => k + 1);
-    setShowXpPopup(true);
-    setIsFlipped(false);
-    setCurrentIndex(prev => prev + 1);
-  }, [currentIndex, items, updateVocabProgress, addXp, recordCorrectAnswer]);
-
-  const handleReviewAgain = useCallback(() => {
+  const handleRate = useCallback((rating: 'again' | 'hard' | 'good' | 'easy') => {
     const currentItem = items[currentIndex];
     if (!currentItem || currentIndex >= items.length) return;
-    updateVocabProgress(currentItem.id, false);
-    recordCorrectAnswer(false);
-    setIsFlipped(false);
-
-    if (!reviewAgainSet.has(currentItem.id)) {
-      setReviewAgainSet(prev => new Set(prev).add(currentItem.id));
-      setMissedWordIds(prev => [
-        ...prev.filter(id => id !== currentItem.id),
-        currentItem.id,
-      ]);
-      setItems(prev => [...prev, { ...currentItem }]);
-    } else {
-      setMissedWordIds(prev =>
-        prev.includes(currentItem.id) ? prev : [...prev, currentItem.id]
-      );
+    
+    updateVocabProgressWithRating(currentItem.id, rating);
+    const isCorrect = rating !== 'again';
+    recordCorrectAnswer(isCorrect);
+    
+    if (isCorrect) {
+      addXp(XP_REWARDS.STUDY_CARD);
+      setXpTick(k => k + 1);
+      setShowXpPopup(true);
     }
-
+    
+    setIsFlipped(false);
+    
+    if (rating === 'again' || rating === 'hard') {
+      if (!reviewAgainSet.has(currentItem.id)) {
+        setReviewAgainSet(prev => new Set(prev).add(currentItem.id));
+        setMissedWordIds(prev => [
+          ...prev.filter(id => id !== currentItem.id),
+          currentItem.id,
+        ]);
+        setItems(prev => [...prev, { ...currentItem }]);
+      } else {
+        setMissedWordIds(prev =>
+          prev.includes(currentItem.id) ? prev : [...prev, currentItem.id]
+        );
+      }
+    }
+    
     setCurrentIndex(prev => prev + 1);
-  }, [currentIndex, items, reviewAgainSet, updateVocabProgress]);
+  }, [currentIndex, items, reviewAgainSet, updateVocabProgressWithRating, addXp, recordCorrectAnswer]);
 
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
@@ -107,13 +106,17 @@ export default function Study() {
           e.preventDefault();
           setIsFlipped(f => !f);
           break;
-        case "ArrowRight":
-        case "2":
-          if (isFlipped) handleKnown();
-          break;
-        case "ArrowLeft":
         case "1":
-          if (isFlipped) handleReviewAgain();
+          if (isFlipped) handleRate('again');
+          break;
+        case "2":
+          if (isFlipped) handleRate('hard');
+          break;
+        case "3":
+          if (isFlipped) handleRate('good');
+          break;
+        case "4":
+          if (isFlipped) handleRate('easy');
           break;
         case "s":
         case "S":
@@ -123,7 +126,7 @@ export default function Study() {
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
-  }, [isFlipped, currentIndex, items, handleKnown, handleReviewAgain]);
+  }, [isFlipped, currentIndex, items, handleRate]);
 
   const isFinished = currentIndex > 0 && currentIndex >= items.length;
 
@@ -294,7 +297,7 @@ export default function Study() {
       {/* Keyboard hint */}
       <div className="flex items-center gap-1.5 text-xs text-gray-400 dark:text-gray-500">
         <Keyboard className="w-3.5 h-3.5" />
-        <span>Space = flip &nbsp;·&nbsp; ← Review Again &nbsp;·&nbsp; → Got It &nbsp;·&nbsp; S = speak</span>
+        <span>Space = flip &nbsp;·&nbsp; 1=Again, 2=Hard, 3=Good, 4=Easy &nbsp;·&nbsp; S = speak</span>
       </div>
 
       {/* Progress bar */}
@@ -403,28 +406,25 @@ export default function Study() {
       {/* Controls */}
       <div
         className={cn(
-          "flex gap-4 transition-all duration-300",
+          "grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-4 transition-all duration-300",
           isFlipped ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
         )}
       >
-        <button
-          onClick={handleReviewAgain}
-          className={cn(
-            "flex-1 flex items-center justify-center gap-2 py-4 border-2 rounded-2xl font-semibold transition-colors",
-            isReviewAgainCard
-              ? "bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-              : "bg-white dark:bg-gray-800 border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 hover:border-red-200 dark:hover:border-red-800"
-          )}
-        >
-          <XCircle className="w-5 h-5" />
-          {isReviewAgainCard ? "Still Learning" : "Review Again"}
+        <button onClick={() => handleRate('again')} className="py-3 border-2 border-red-100 dark:border-red-900/50 text-red-600 dark:text-red-400 bg-white dark:bg-gray-800 rounded-2xl font-semibold hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors">
+          <div className="text-sm">Again</div>
+          <div className="text-xs font-normal opacity-70">1</div>
         </button>
-        <button
-          onClick={handleKnown}
-          className="flex-1 flex items-center justify-center gap-2 py-4 bg-emerald-600 text-white rounded-2xl font-semibold hover:bg-emerald-700 transition-colors shadow-sm"
-        >
-          <CheckCircle className="w-5 h-5" />
-          Got It!
+        <button onClick={() => handleRate('hard')} className="py-3 border-2 border-amber-100 dark:border-amber-900/50 text-amber-600 dark:text-amber-400 bg-white dark:bg-gray-800 rounded-2xl font-semibold hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors">
+          <div className="text-sm">Hard</div>
+          <div className="text-xs font-normal opacity-70">2</div>
+        </button>
+        <button onClick={() => handleRate('good')} className="py-3 border-2 border-blue-100 dark:border-blue-900/50 text-blue-600 dark:text-blue-400 bg-white dark:bg-gray-800 rounded-2xl font-semibold hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors">
+          <div className="text-sm">Good</div>
+          <div className="text-xs font-normal opacity-70">3</div>
+        </button>
+        <button onClick={() => handleRate('easy')} className="py-3 border-2 border-emerald-100 dark:border-emerald-900/50 text-emerald-600 dark:text-emerald-400 bg-white dark:bg-gray-800 rounded-2xl font-semibold hover:bg-emerald-50 dark:hover:bg-emerald-900/30 transition-colors">
+          <div className="text-sm">Easy</div>
+          <div className="text-xs font-normal opacity-70">4</div>
         </button>
       </div>
     </div>

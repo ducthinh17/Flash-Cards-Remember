@@ -4,7 +4,8 @@
  */
 
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import { idbStorage } from './idbStorage';
 
 // ── XP per activity ──────────────────────────────────────────────────────────
 export const XP_REWARDS = {
@@ -325,6 +326,7 @@ export const useGamificationStore = create<GamificationState>()(
     }),
     {
       name: 'flashcard-gamification',
+      storage: createJSONStorage(() => idbStorage),
       partialize: (state) => ({
         // Only persist these fields — exclude transient UI state
         totalXp: state.totalXp,

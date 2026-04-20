@@ -30,6 +30,65 @@ export default function AppLayout() {
     }
   }, [theme]);
 
+  // Request Notification permission & setup daily reminder
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      // Small delay so it's not too aggressive on first load
+      const timeout = setTimeout(() => {
+        Notification.requestPermission();
+      }, 5000);
+      return () => clearTimeout(timeout);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+
+    // Check every hour if it's past 8 PM and user hasn't studied today
+    const checkReminder = () => {
+      const { lastStudiedDate } = useStore.getState();
+      const studiedToday = lastStudiedDate
+        ? new Date(lastStudiedDate).toDateString() === new Date().toDateString()
+        : false;
+      const hour = new Date().getHours();
+      
+      if (!studiedToday && hour >= 20) {
+        const lastNotified = localStorage.getItem('last_study_notification');
+        const today = new Date().toDateString();
+        
+        if (lastNotified !== today) {
+          try {
+            navigator.serviceWorker.ready.then(registration => {
+              registration.showNotification("Daily Focus Reminder", {
+                body: "Don't break your streak! You have pending reviews waiting.",
+                icon: "/logo.png",
+                badge: "/logo.png",
+                tag: "daily-study-reminder"
+              });
+            }).catch(() => {
+              // Fallback to normal notification if SW not ready
+              new Notification("Daily Focus Reminder", {
+                body: "Don't break your streak! You have pending reviews waiting.",
+                icon: "/logo.png"
+              });
+            });
+          } catch (e) {
+            new Notification("Daily Focus Reminder", {
+              body: "Don't break your streak! You have pending reviews waiting.",
+              icon: "/logo.png"
+            });
+          }
+          localStorage.setItem('last_study_notification', today);
+        }
+      }
+    };
+
+    // Run check initially and then every hour
+    checkReminder();
+    const interval = setInterval(checkReminder, 1000 * 60 * 60);
+    return () => clearInterval(interval);
+  }, []);
+
   // bg-[#f5f5f5] replaces old bg context
   return (
     <div className="min-h-screen bg-[#f5f5f5] dark:bg-[#111827] text-gray-900 dark:text-gray-100 flex flex-col md:flex-row font-sans transition-colors duration-300">
